@@ -10,6 +10,12 @@
 "detail.paused" = "Monitoring is paused.";
 "sessions.title" = "Sessions";
 "sessions.empty" = "No active Claude Code sessions";
+"session.status.running" = "Running";
+"session.status.waiting_approval" = "Waiting approval";
+"session.status.idle" = "Idle";
+"session.status.ended" = "Ended";
+"session.status.stale" = "Stale";
+"session.status.error" = "Error";
 "approval.request_title" = "Approval needed";
 "approval.tool" = "Tool";
 "approval.source" = "Source";

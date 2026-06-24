@@ -5,19 +5,23 @@ struct StatusPopoverView: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            header
-            summary
-            approvalRequest
-            Divider()
-            sessions
-            Divider()
-            controls
-            integrationMessage
-            autoApprovalStats
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                header
+                summary
+                approvalRequest
+                Divider()
+                sessions
+                Divider()
+                controls
+                integrationMessage
+                autoApprovalStats
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(14)
         .frame(width: 382, alignment: .topLeading)
+        .frame(maxHeight: 560, alignment: .topLeading)
     }
 
     private var header: some View {
@@ -177,8 +181,9 @@ struct StatusPopoverView: View {
     private func sessionRow(_ session: ClaudeSession) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(session.status.rawValue)
+                Text(sessionStatusTitle(session.status))
                     .font(.caption.weight(.semibold))
+                    .foregroundStyle(session.status == .waitingApproval ? .orange : .primary)
                 Spacer()
                 Text(session.source.rawValue.uppercased())
                     .font(.caption2.weight(.bold))
@@ -276,6 +281,23 @@ struct StatusPopoverView: View {
             return .orange
         case .degraded:
             return .red
+        }
+    }
+
+    private func sessionStatusTitle(_ status: SessionStatus) -> String {
+        switch status {
+        case .running:
+            return localized(.sessionStatusRunning)
+        case .waitingApproval:
+            return localized(.sessionStatusWaitingApproval)
+        case .idle:
+            return localized(.sessionStatusIdle)
+        case .ended:
+            return localized(.sessionStatusEnded)
+        case .stale:
+            return localized(.sessionStatusStale)
+        case .error:
+            return localized(.sessionStatusError)
         }
     }
 

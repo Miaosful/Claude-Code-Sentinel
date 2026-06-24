@@ -10,6 +10,12 @@
 "detail.paused" = "监控已暂停。";
 "sessions.title" = "会话";
 "sessions.empty" = "没有活跃的 Claude Code 会话";
+"session.status.running" = "运行中";
+"session.status.waiting_approval" = "等待审批";
+"session.status.idle" = "空闲";
+"session.status.ended" = "已结束";
+"session.status.stale" = "已过期";
+"session.status.error" = "异常";
 "approval.request_title" = "需要审批";
 "approval.tool" = "工具";
 "approval.source" = "来源";
