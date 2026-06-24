@@ -9,6 +9,8 @@ let package = Package(
         .library(name: "CCSentinelCore", targets: ["CCSentinelCore"]),
         .executable(name: "CCSentinelApp", targets: ["CCSentinelApp"]),
         .executable(name: "CCSentinelCoreTestRunner", targets: ["CCSentinelCoreTestRunner"]),
+        .executable(name: "cc-sentinel-debug-receiver", targets: ["CCSentinelDebugReceiver"]),
+        .executable(name: "cc-sentinel-dump-state", targets: ["CCSentinelDumpState"]),
         .executable(name: "cc-sentinel-hook", targets: ["CCSentinelHook"]),
         .executable(name: "cc-sentinel-wrapper", targets: ["CCSentinelWrapper"])
     ],
@@ -20,6 +22,8 @@ let package = Package(
             resources: [.process("Resources")]
         ),
         .executableTarget(name: "CCSentinelCoreTestRunner", dependencies: ["CCSentinelCore"]),
+        .executableTarget(name: "CCSentinelDebugReceiver", dependencies: ["CCSentinelCore"]),
+        .executableTarget(name: "CCSentinelDumpState", dependencies: ["CCSentinelCore"]),
         .executableTarget(name: "CCSentinelHook", dependencies: ["CCSentinelCore"]),
         .executableTarget(name: "CCSentinelWrapper", dependencies: ["CCSentinelCore"])
     ]

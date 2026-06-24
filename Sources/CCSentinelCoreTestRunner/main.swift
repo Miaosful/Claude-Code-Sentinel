@@ -145,6 +145,71 @@ func testSessionStorePersistenceRoundTripsJSON() throws {
 try testSessionStorePersistenceRoundTripsJSON()
 print("PASS: SessionStorePersistenceTests")
 
+func testPersistingEventHandlerAppliesAndSavesEvents() throws {
+    let url = FileManager.default.temporaryDirectory
+        .appendingPathComponent("cc-sentinel-persisting-handler-\(UUID().uuidString)")
+        .appendingPathExtension("json")
+    defer { try? FileManager.default.removeItem(at: url) }
+
+    let handler = PersistingEventHandler(storeURL: url)
+    handler.handle(.init(
+        kind: .sessionStart,
+        sessionID: "persisting",
+        source: .cli,
+        cwd: "/repo"
+    ))
+    handler.handle(.init(
+        kind: .permissionRequest,
+        sessionID: "persisting",
+        source: .cli,
+        cwd: "/repo",
+        toolName: "Bash",
+        toolSummary: "command=pnpm test"
+    ))
+
+    let loaded = try SessionStorePersistence.load(from: url)
+    assertEqual(loaded.aggregateStatus, .waitingApproval, "persisting handler saves aggregate status")
+    assertEqual(loaded.sessions.first?.id, .some("persisting"), "persisting handler saves session id")
+    assertEqual(loaded.sessions.first?.lastToolSummary, .some("command=pnpm test"), "persisting handler saves tool summary")
+}
+
+try testPersistingEventHandlerAppliesAndSavesEvents()
+print("PASS: PersistingEventHandlerTests")
+
+func testSessionStoreDumpShowsWaitingApprovalSession() {
+    let store = SessionStore(sessions: [
+        ClaudeSession(
+            id: "s1",
+            source: .vscode,
+            cwd: "/repo",
+            status: .waitingApproval,
+            lastToolName: "Bash",
+            lastToolSummary: "command=pnpm test",
+            lastEventAt: Date(timeIntervalSince1970: 123),
+            waitingSince: Date(timeIntervalSince1970: 123),
+            approvalRequest: ApprovalRequest(
+                toolName: "Bash",
+                summary: "command=pnpm test",
+                requestedAt: Date(timeIntervalSince1970: 123)
+            )
+        )
+    ])
+
+    let dump = SessionStoreDump.render(store: store)
+
+    assertTrue(dump.contains("aggregate_status: waiting_approval"), "dump shows aggregate status")
+    assertTrue(dump.contains("session_count: 1"), "dump shows session count")
+    assertTrue(dump.contains("id: s1"), "dump shows session id")
+    assertTrue(dump.contains("source: vscode"), "dump shows session source")
+    assertTrue(dump.contains("status: waiting_approval"), "dump shows session status")
+    assertTrue(dump.contains("tool: Bash"), "dump shows last tool")
+    assertTrue(dump.contains("summary: command=pnpm test"), "dump shows safe summary")
+    assertTrue(dump.contains("waiting_since: 1970-01-01T00:02:03Z"), "dump shows waiting timestamp")
+}
+
+testSessionStoreDumpShowsWaitingApprovalSession()
+print("PASS: SessionStoreDumpTests")
+
 func testHookForwarderWritesFallbackWhenReceiverIsUnavailable() async throws {
     let temp = FileManager.default.temporaryDirectory
         .appendingPathComponent("cc-sentinel-\(UUID().uuidString)")
