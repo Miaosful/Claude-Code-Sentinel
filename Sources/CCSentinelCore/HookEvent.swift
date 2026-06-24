@@ -24,6 +24,7 @@ public struct NormalizedEvent: Codable, Equatable, Sendable {
     public var permissionMode: String?
     public var toolName: String?
     public var toolSummary: String?
+    public var toolCommand: String?
     public var occurredAt: Date
 
     public init(
@@ -34,6 +35,7 @@ public struct NormalizedEvent: Codable, Equatable, Sendable {
         permissionMode: String? = nil,
         toolName: String? = nil,
         toolSummary: String? = nil,
+        toolCommand: String? = nil,
         occurredAt: Date = Date()
     ) {
         self.kind = kind
@@ -43,6 +45,7 @@ public struct NormalizedEvent: Codable, Equatable, Sendable {
         self.permissionMode = permissionMode
         self.toolName = toolName
         self.toolSummary = toolSummary
+        self.toolCommand = toolCommand
         self.occurredAt = occurredAt
     }
 }

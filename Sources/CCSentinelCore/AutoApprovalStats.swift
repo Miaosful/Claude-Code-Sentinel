@@ -44,3 +44,27 @@ public struct AutoApprovalStats: Codable, Equatable, Sendable {
         }.count
     }
 }
+
+public enum AutoApprovalStatsPersistence {
+    public static func save(_ stats: AutoApprovalStats, to url: URL) throws {
+        let directory = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(stats)
+        try data.write(to: url, options: .atomic)
+    }
+
+    public static func load(from url: URL) throws -> AutoApprovalStats {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return AutoApprovalStats()
+        }
+
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(AutoApprovalStats.self, from: data)
+    }
+}

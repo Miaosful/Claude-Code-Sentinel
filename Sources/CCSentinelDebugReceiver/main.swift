@@ -3,8 +3,7 @@ import Dispatch
 import CCSentinelCore
 
 let environment = ProcessInfo.processInfo.environment
-let storeURL = environment["CC_SENTINEL_STORE_PATH"]
-    .map { URL(fileURLWithPath: $0) } ?? defaultStoreURL()
+let storeURL = CCSentinelPaths.storeURL(environment: environment)
 let port = environment["CC_SENTINEL_PORT"].flatMap(UInt16.init) ?? 47281
 let handler = PersistingEventHandler(storeURL: storeURL)
 
@@ -20,13 +19,4 @@ do {
 } catch {
     FileHandle.standardError.write(Data("cc-sentinel-debug-receiver: \(error)\n".utf8))
     Foundation.exit(2)
-}
-
-private func defaultStoreURL() -> URL {
-    let applicationSupport = FileManager.default
-        .urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        .first ?? FileManager.default.temporaryDirectory
-    return applicationSupport
-        .appendingPathComponent("CC Sentinel", isDirectory: true)
-        .appendingPathComponent("session-store.json")
 }

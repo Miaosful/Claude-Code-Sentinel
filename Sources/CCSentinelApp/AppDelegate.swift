@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBarController: MenuBarController?
     private var popover: NSPopover?
     private var receiver: EventReceiver?
+    private var statsTimer: Timer?
     private var cancellables: Set<AnyCancellable> = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -40,7 +41,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .store(in: &cancellables)
 
         startReceiver()
+        startStatsRefresh()
         controller.update(status: model.aggregateStatus)
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        statsTimer?.invalidate()
+        receiver?.stop()
     }
 
     private func startReceiver() {
@@ -54,6 +61,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.receiver = receiver
         } catch {
             menuBarController?.update(status: .degraded)
+        }
+    }
+
+    private func startStatsRefresh() {
+        statsTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.model.refreshAutoApprovalStats()
+            }
         }
     }
 

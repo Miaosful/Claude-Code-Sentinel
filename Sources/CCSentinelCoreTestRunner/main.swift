@@ -56,6 +56,17 @@ func testPermissionRequestBecomesWaitingApprovalEvent() throws {
     assertEqual(event.cwd, "/repo", "permission event cwd")
     assertEqual(event.toolName, "Bash", "permission event tool name")
     assertEqual(event.toolSummary, "command=pnpm test", "permission event tool summary")
+    assertEqual(event.toolCommand, "pnpm test", "permission event command")
+}
+
+func testReadPathBecomesToolCommand() throws {
+    let json = """
+    {"hook_event_name":"PermissionRequest","session_id":"s1","cwd":"/repo","tool_name":"Read","tool_input":{"file_path":"/repo/README.md"}}
+    """.data(using: .utf8)!
+
+    let event = try EventNormalizer.normalize(json)
+
+    assertEqual(event.toolCommand, "/repo/README.md", "read path becomes command for policy evaluation")
 }
 
 func testRedactsTokenLikeValues() {
@@ -67,6 +78,7 @@ func testRedactsTokenLikeValues() {
 }
 
 try testPermissionRequestBecomesWaitingApprovalEvent()
+try testReadPathBecomesToolCommand()
 testRedactsTokenLikeValues()
 print("PASS: EventNormalizerTests")
 print("PASS: RedactorTests")
@@ -460,6 +472,110 @@ func testGitPushIsDeniedByDefault() {
     assertEqual(decision, .deny, "git push is denied")
 }
 
+func testWorkspacePrefixSiblingIsNotAllowed() {
+    let policy = ApprovalPolicy(allowWorkspaceReads: true, allowWorkspaceEdits: false)
+    let decision = policy.evaluate(
+        tool: "Read",
+        command: "/repo-sibling/README.md",
+        cwd: "/repo",
+        workspace: "/repo"
+    )
+
+    assertEqual(decision, .ask, "workspace prefix sibling is not allowed")
+}
+
+func testAutoApprovalSettingsDefaultToDisabled() {
+    assertEqual(AutoApprovalSettings.default.enabled, false, "auto approval defaults disabled")
+}
+
+func testAutoApprovalDoesNothingWhenDisabled() throws {
+    let input = """
+    {"hook_event_name":"PermissionRequest","session_id":"auto-disabled","cwd":"/repo","tool_name":"Read","tool_input":{"file_path":"/repo/README.md"}}
+    """.data(using: .utf8)!
+    var stats = AutoApprovalStats()
+
+    let result = try AutoApprovalHookDecision.evaluate(
+        inputData: input,
+        settings: .default,
+        stats: &stats,
+        now: Date(timeIntervalSince1970: 1_800_000_000)
+    )
+
+    assertEqual(result.outputJSON, nil, "disabled auto approval has no hook output")
+    assertEqual(stats.totalCount, 0, "disabled auto approval does not record stats")
+}
+
+func testAutoApprovalAllowsWorkspaceReadAndRecordsStats() throws {
+    let input = """
+    {"hook_event_name":"PermissionRequest","session_id":"auto-read","cwd":"/repo","tool_name":"Read","tool_input":{"file_path":"/repo/README.md"}}
+    """.data(using: .utf8)!
+    let settings = AutoApprovalSettings(
+        enabled: true,
+        policy: ApprovalPolicy(allowWorkspaceReads: true, allowWorkspaceEdits: false),
+        workspace: "/repo"
+    )
+    var stats = AutoApprovalStats()
+
+    let result = try AutoApprovalHookDecision.evaluate(
+        inputData: input,
+        settings: settings,
+        stats: &stats,
+        now: Date(timeIntervalSince1970: 1_800_000_000)
+    )
+
+    assertEqual(result.decision, .allow, "workspace read is allowed")
+    assertTrue(result.outputJSON?.contains(#""hookEventName":"PermissionRequest""#) == true, "allow output names permission request")
+    assertTrue(result.outputJSON?.contains(#""decision":{"behavior":"allow"}"#) == true, "allow output uses permission request decision object")
+    assertTrue(result.outputJSON?.contains(#""behavior":"allow""#) == true, "allow output grants permission")
+    assertTrue(result.outputJSON?.contains("updatedInput") == false, "allow output does not replace input")
+    assertEqual(stats.totalCount, 1, "allowed approval increments total")
+    assertEqual(stats.todayCount(now: Date(timeIntervalSince1970: 1_800_000_100)), 1, "allowed approval increments today")
+    assertEqual(stats.lastEvent?.toolName, .some("Read"), "allowed approval records tool")
+}
+
+func testAutoApprovalDoesNotAllowOutsideWorkspaceRead() throws {
+    let input = """
+    {"hook_event_name":"PermissionRequest","session_id":"auto-outside","cwd":"/repo","tool_name":"Read","tool_input":{"file_path":"/etc/passwd"}}
+    """.data(using: .utf8)!
+    let settings = AutoApprovalSettings(
+        enabled: true,
+        policy: ApprovalPolicy(allowWorkspaceReads: true, allowWorkspaceEdits: false),
+        workspace: "/repo"
+    )
+    var stats = AutoApprovalStats()
+
+    let result = try AutoApprovalHookDecision.evaluate(
+        inputData: input,
+        settings: settings,
+        stats: &stats,
+        now: Date(timeIntervalSince1970: 1_800_000_000)
+    )
+
+    assertEqual(result.decision, .ask, "outside workspace read is not auto-approved")
+    assertEqual(result.outputJSON, nil, "outside workspace read has no hook output")
+    assertEqual(stats.totalCount, 0, "outside workspace read does not increment stats")
+}
+
+func testAutoApprovalStatsPersistenceRoundTripsJSON() throws {
+    let url = FileManager.default.temporaryDirectory
+        .appendingPathComponent("cc-sentinel-auto-stats-\(UUID().uuidString)")
+        .appendingPathExtension("json")
+    defer { try? FileManager.default.removeItem(at: url) }
+    var stats = AutoApprovalStats()
+    stats.record(
+        toolName: "Read",
+        summary: "/repo/README.md",
+        workspace: "/repo",
+        at: Date(timeIntervalSince1970: 1_800_000_000)
+    )
+
+    try AutoApprovalStatsPersistence.save(stats, to: url)
+    let loaded = try AutoApprovalStatsPersistence.load(from: url)
+
+    assertEqual(loaded.totalCount, 1, "stats persistence keeps total")
+    assertEqual(loaded.lastEvent?.workspace, .some("/repo"), "stats persistence keeps workspace")
+}
+
 func testRecordingAutoApprovalIncrementsTodayAndTotal() {
     var stats = AutoApprovalStats()
     stats.record(
@@ -477,6 +593,12 @@ func testRecordingAutoApprovalIncrementsTodayAndTotal() {
 testDefaultPolicyAsksForEveryTool()
 testLowRiskReadCanBeAllowedWhenUserOptedIn()
 testGitPushIsDeniedByDefault()
+testWorkspacePrefixSiblingIsNotAllowed()
+testAutoApprovalSettingsDefaultToDisabled()
+try testAutoApprovalDoesNothingWhenDisabled()
+try testAutoApprovalAllowsWorkspaceReadAndRecordsStats()
+try testAutoApprovalDoesNotAllowOutsideWorkspaceRead()
+try testAutoApprovalStatsPersistenceRoundTripsJSON()
 testRecordingAutoApprovalIncrementsTodayAndTotal()
 print("PASS: ApprovalPolicyTests")
 print("PASS: AutoApprovalStatsTests")

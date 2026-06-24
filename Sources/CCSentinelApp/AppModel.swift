@@ -6,22 +6,44 @@ final class AppModel: ObservableObject {
     @Published private(set) var store = SessionStore()
     @Published private var autoApprovalStats = AutoApprovalStats()
     @Published var monitoringPaused = false
-    @Published var autoApprovalEnabled = false
+    @Published var autoApprovalEnabled = false {
+        didSet {
+            guard autoApprovalEnabled != oldValue else { return }
+            autoApprovalSettings.enabled = autoApprovalEnabled
+            persistAutoApprovalSettings()
+        }
+    }
     @Published var integrationMessageKey: L10nKey?
 
     private let storeURL: URL
+    private let autoApprovalSettingsURL: URL
+    private let autoApprovalStatsURL: URL
     private let settingsURL: URL
     private let hookBinaryURL: URL
+    private var autoApprovalSettings: AutoApprovalSettings
 
     init(
         storeURL: URL = AppModel.defaultStoreURL(),
+        autoApprovalSettingsURL: URL = AppModel.defaultAutoApprovalSettingsURL(),
+        autoApprovalStatsURL: URL = AppModel.defaultAutoApprovalStatsURL(),
         settingsURL: URL = AppModel.defaultClaudeSettingsURL(),
         hookBinaryURL: URL = AppModel.defaultHookBinaryURL()
     ) {
         self.storeURL = storeURL
+        self.autoApprovalSettingsURL = autoApprovalSettingsURL
+        self.autoApprovalStatsURL = autoApprovalStatsURL
         self.settingsURL = settingsURL
         self.hookBinaryURL = hookBinaryURL
         self.store = (try? SessionStorePersistence.load(from: storeURL)) ?? SessionStore()
+        self.autoApprovalSettings = (try? AutoApprovalSettingsPersistence.load(from: autoApprovalSettingsURL)) ??
+            AutoApprovalSettings(
+                enabled: false,
+                policy: ApprovalPolicy(allowWorkspaceReads: true, allowWorkspaceEdits: false),
+                workspace: FileManager.default.homeDirectoryForCurrentUser.path
+            )
+        self.autoApprovalEnabled = autoApprovalSettings.enabled
+        self.autoApprovalStats = (try? AutoApprovalStatsPersistence.load(from: autoApprovalStatsURL)) ?? AutoApprovalStats()
+        persistAutoApprovalSettings()
     }
 
     var aggregateStatus: AggregateStatus {
@@ -34,6 +56,10 @@ final class AppModel: ObservableObject {
 
     var autoApprovedTotal: Int {
         autoApprovalStats.totalCount
+    }
+
+    func refreshAutoApprovalStats() {
+        autoApprovalStats = (try? AutoApprovalStatsPersistence.load(from: autoApprovalStatsURL)) ?? autoApprovalStats
     }
 
     func apply(_ event: NormalizedEvent) {
@@ -58,6 +84,7 @@ final class AppModel: ObservableObject {
 
     func recordAutoApproval(toolName: String, summary: String, workspace: String) {
         autoApprovalStats.record(toolName: toolName, summary: summary, workspace: workspace)
+        try? AutoApprovalStatsPersistence.save(autoApprovalStats, to: autoApprovalStatsURL)
     }
 
     func installHooks() {
@@ -86,15 +113,19 @@ final class AppModel: ObservableObject {
     }
 
     private static func defaultStoreURL() -> URL {
-        if let override = ProcessInfo.processInfo.environment["CC_SENTINEL_STORE_PATH"] {
-            return URL(fileURLWithPath: override)
-        }
-        let applicationSupport = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            .first ?? FileManager.default.temporaryDirectory
-        return applicationSupport
-            .appendingPathComponent("CC Sentinel", isDirectory: true)
-            .appendingPathComponent("session-store.json")
+        CCSentinelPaths.storeURL()
+    }
+
+    private func persistAutoApprovalSettings() {
+        try? AutoApprovalSettingsPersistence.save(autoApprovalSettings, to: autoApprovalSettingsURL)
+    }
+
+    private static func defaultAutoApprovalSettingsURL() -> URL {
+        CCSentinelPaths.autoApprovalSettingsURL()
+    }
+
+    private static func defaultAutoApprovalStatsURL() -> URL {
+        CCSentinelPaths.autoApprovalStatsURL()
     }
 
     private static func defaultClaudeSettingsURL() -> URL {

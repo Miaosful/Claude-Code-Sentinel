@@ -19,7 +19,9 @@ public enum EventNormalizer {
         let cwd = object["cwd"] as? String ?? ""
         let permissionMode = object["permission_mode"] as? String
         let toolName = object["tool_name"] as? String
-        let toolSummary = object["tool_input"].map { summarizeJSONObject($0) }
+        let toolInput = object["tool_input"]
+        let toolSummary = toolInput.map { summarizeJSONObject($0) }
+        let toolCommand = commandValue(from: toolInput)
 
         return NormalizedEvent(
             kind: mapHookName(hookName),
@@ -29,6 +31,7 @@ public enum EventNormalizer {
             permissionMode: permissionMode,
             toolName: toolName,
             toolSummary: toolSummary,
+            toolCommand: toolCommand,
             occurredAt: Date()
         )
     }
@@ -77,5 +80,17 @@ public enum EventNormalizer {
             }.joined(separator: " ")
         }
         return Redactor.safeSummary(String(describing: value))
+    }
+
+    private static func commandValue(from value: Any?) -> String? {
+        guard let dict = value as? [String: Any] else {
+            return value.map { String(describing: $0) }
+        }
+        for key in ["command", "file_path", "path", "notebook_path"] {
+            if let raw = dict[key] as? String, !raw.isEmpty {
+                return raw
+            }
+        }
+        return nil
     }
 }

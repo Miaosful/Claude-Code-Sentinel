@@ -1,3 +1,5 @@
+import Foundation
+
 public enum ApprovalDecision: String, Codable, Equatable, Sendable {
     case allow
     case ask
@@ -45,9 +47,18 @@ public struct ApprovalPolicy: Codable, Equatable, Sendable {
     }
 
     private func isWorkspaceScoped(command: String, cwd: String, workspace: String) -> Bool {
-        if command.hasPrefix("/") {
-            return command.hasPrefix(workspace)
+        guard !workspace.isEmpty else {
+            return false
         }
-        return cwd.hasPrefix(workspace)
+        if command.hasPrefix("/") {
+            return path(command, isWithin: workspace)
+        }
+        return path(cwd, isWithin: workspace)
+    }
+
+    private func path(_ candidate: String, isWithin workspace: String) -> Bool {
+        let candidateURL = URL(fileURLWithPath: candidate).standardizedFileURL.path
+        let workspaceURL = URL(fileURLWithPath: workspace).standardizedFileURL.path
+        return candidateURL == workspaceURL || candidateURL.hasPrefix(workspaceURL + "/")
     }
 }
