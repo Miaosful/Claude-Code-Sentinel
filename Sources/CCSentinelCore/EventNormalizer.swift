@@ -24,7 +24,7 @@ public enum EventNormalizer {
         return NormalizedEvent(
             kind: mapHookName(hookName),
             sessionID: sessionID,
-            source: sourceHint,
+            source: mapSource(object["source"] as? String) ?? sourceHint,
             cwd: cwd,
             permissionMode: permissionMode,
             toolName: toolName,
@@ -47,8 +47,25 @@ public enum EventNormalizer {
             return .stop
         case "SessionEnd":
             return .sessionEnd
+        case "WrapperProcessStart":
+            return .wrapperProcessStart
+        case "WrapperProcessEnd":
+            return .wrapperProcessEnd
         default:
             return .notification
+        }
+    }
+
+    private static func mapSource(_ value: String?) -> SessionSource? {
+        switch value {
+        case "cli":
+            return .cli
+        case "vscode":
+            return .vscode
+        case "unknown":
+            return .unknown
+        default:
+            return nil
         }
     }
 

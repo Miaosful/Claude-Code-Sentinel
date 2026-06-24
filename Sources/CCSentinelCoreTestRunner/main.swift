@@ -119,3 +119,25 @@ func testHookForwarderWritesFallbackWhenReceiverIsUnavailable() async throws {
 
 try await testHookForwarderWritesFallbackWhenReceiverIsUnavailable()
 print("PASS: HookForwarderTests")
+
+func testWrapperSeparatesRealClaudeBinaryFromArguments() {
+    let parsed = WrapperArguments.parse(["/usr/local/bin/claude", "--print", "hello"])
+
+    assertEqual(parsed?.realClaudeBinary, "/usr/local/bin/claude", "wrapper real binary")
+    assertEqual(parsed?.forwardedArguments, ["--print", "hello"], "wrapper forwarded arguments")
+}
+
+func testWrapperProcessStartUsesVscodeSource() throws {
+    let json = """
+    {"hook_event_name":"WrapperProcessStart","session_id":"wrapper-123","cwd":"/repo","source":"vscode"}
+    """.data(using: .utf8)!
+
+    let event = try EventNormalizer.normalize(json)
+
+    assertEqual(event.kind, .wrapperProcessStart, "wrapper process start kind")
+    assertEqual(event.source, .vscode, "wrapper process source")
+}
+
+testWrapperSeparatesRealClaudeBinaryFromArguments()
+try testWrapperProcessStartUsesVscodeSource()
+print("PASS: WrapperTests")
