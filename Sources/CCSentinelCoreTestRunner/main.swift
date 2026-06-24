@@ -170,3 +170,21 @@ func testUninstallRemovesOnlyManagedHook() throws {
 try testInstallerPreservesUnrelatedSettingsAndAddsManagedHook()
 try testUninstallRemovesOnlyManagedHook()
 print("PASS: HookSettingsInstallerTests")
+
+func testLocalizationFilesCoverAllKeys() throws {
+    let keys = Set(L10nKey.allCases.map(\.rawValue))
+    let paths = [
+        "Sources/CCSentinelApp/Resources/en.lproj/Localizable.strings",
+        "Sources/CCSentinelApp/Resources/zh-Hans.lproj/Localizable.strings"
+    ]
+
+    for path in paths {
+        let text = try String(contentsOfFile: path, encoding: .utf8)
+        for key in keys {
+            assertTrue(text.contains(#""\#(key)""#), "\(path) contains \(key)")
+        }
+    }
+}
+
+try testLocalizationFilesCoverAllKeys()
+print("PASS: LocalizationCoverageTests")

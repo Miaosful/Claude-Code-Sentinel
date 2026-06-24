@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "CCSentinel",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "CCSentinelCore", targets: ["CCSentinelCore"]),
@@ -15,7 +16,8 @@ let package = Package(
         .target(name: "CCSentinelCore"),
         .executableTarget(
             name: "CCSentinelApp",
-            dependencies: ["CCSentinelCore"]
+            dependencies: ["CCSentinelCore"],
+            resources: [.process("Resources")]
         ),
         .executableTarget(name: "CCSentinelCoreTestRunner", dependencies: ["CCSentinelCore"]),
         .executableTarget(name: "CCSentinelHook", dependencies: ["CCSentinelCore"]),

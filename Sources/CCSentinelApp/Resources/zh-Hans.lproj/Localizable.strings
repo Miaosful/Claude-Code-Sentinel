@@ -1,0 +1,13 @@
+"app.name" = "CC Sentinel";
+"status.idle" = "空闲";
+"status.running" = "运行中";
+"status.waiting_approval" = "等待审批";
+"status.degraded" = "状态降级";
+"sessions.title" = "会话";
+"auto_approval.policy" = "自动审批策略";
+"auto_approval.today" = "今日自动同意";
+"auto_approval.total" = "总共自动同意";
+"actions.install_hooks" = "安装 hooks";
+"actions.uninstall_hooks" = "卸载 hooks";
+"actions.pause_monitoring" = "暂停监控";
+"actions.clear_stale" = "清理过期";

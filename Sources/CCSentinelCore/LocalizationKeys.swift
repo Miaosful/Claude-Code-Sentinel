@@ -1,0 +1,15 @@
+public enum L10nKey: String, CaseIterable, Sendable {
+    case appName = "app.name"
+    case statusIdle = "status.idle"
+    case statusRunning = "status.running"
+    case statusWaitingApproval = "status.waiting_approval"
+    case statusDegraded = "status.degraded"
+    case sessionsTitle = "sessions.title"
+    case autoApprovalPolicy = "auto_approval.policy"
+    case autoApprovedToday = "auto_approval.today"
+    case autoApprovedTotal = "auto_approval.total"
+    case installHooks = "actions.install_hooks"
+    case uninstallHooks = "actions.uninstall_hooks"
+    case pauseMonitoring = "actions.pause_monitoring"
+    case clearStale = "actions.clear_stale"
+}

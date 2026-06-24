@@ -1,0 +1,13 @@
+"app.name" = "CC Sentinel";
+"status.idle" = "Idle";
+"status.running" = "Running";
+"status.waiting_approval" = "Waiting Approval";
+"status.degraded" = "Degraded";
+"sessions.title" = "Sessions";
+"auto_approval.policy" = "Auto approval policy";
+"auto_approval.today" = "Today auto-approved";
+"auto_approval.total" = "Total auto-approved";
+"actions.install_hooks" = "Install hooks";
+"actions.uninstall_hooks" = "Uninstall hooks";
+"actions.pause_monitoring" = "Pause monitoring";
+"actions.clear_stale" = "Clear stale";
