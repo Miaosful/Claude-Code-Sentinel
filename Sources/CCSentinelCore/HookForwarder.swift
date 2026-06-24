@@ -10,7 +10,7 @@ public enum HookForwarder {
         data: Data,
         endpoint: URL,
         fallbackURL: URL,
-        timeout: TimeInterval = 0.25
+        timeout: TimeInterval = 1.0
     ) async throws {
         guard !data.isEmpty else {
             throw ForwardError.emptyInput

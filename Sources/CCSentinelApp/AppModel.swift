@@ -86,6 +86,9 @@ final class AppModel: ObservableObject {
     }
 
     private static func defaultStoreURL() -> URL {
+        if let override = ProcessInfo.processInfo.environment["CC_SENTINEL_STORE_PATH"] {
+            return URL(fileURLWithPath: override)
+        }
         let applicationSupport = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)
             .first ?? FileManager.default.temporaryDirectory
@@ -95,12 +98,18 @@ final class AppModel: ObservableObject {
     }
 
     private static func defaultClaudeSettingsURL() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
+        if let override = ProcessInfo.processInfo.environment["CC_SENTINEL_SETTINGS_PATH"] {
+            return URL(fileURLWithPath: override)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude", isDirectory: true)
             .appendingPathComponent("settings.json")
     }
 
     private static func defaultHookBinaryURL() -> URL {
+        if let override = ProcessInfo.processInfo.environment["CC_SENTINEL_HOOK_BINARY_PATH"] {
+            return URL(fileURLWithPath: override)
+        }
         let executableDirectory = Bundle.main.executableURL?.deletingLastPathComponent()
             ?? FileManager.default.currentDirectoryPathURL
         return executableDirectory.appendingPathComponent("cc-sentinel-hook")

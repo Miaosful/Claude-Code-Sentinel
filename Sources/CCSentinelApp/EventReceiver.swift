@@ -29,42 +29,59 @@ final class EventReceiver {
     }
 
     private static func handle(connection: NWConnection, maxBodySize: Int, handler: @escaping EventHandler) {
-        connection.start(queue: DispatchQueue(label: "app.ccsentinel.event-connection"))
-        connection.receive(minimumIncompleteLength: 1, maximumLength: maxBodySize + 1) { data, _, _, _ in
-            guard let data, !data.isEmpty else {
-                send(status: 400, message: "Bad Request", connection: connection)
-                return
+        let queue = DispatchQueue(label: "app.ccsentinel.event-connection")
+        connection.start(queue: queue)
+        receiveRequest(connection: connection, buffer: Data(), maxBodySize: maxBodySize, handler: handler)
+    }
+
+    private static func receiveRequest(
+        connection: NWConnection,
+        buffer: Data,
+        maxBodySize: Int,
+        handler: @escaping EventHandler
+    ) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: maxBodySize + 4096) { data, _, isComplete, _ in
+            var nextBuffer = buffer
+            if let data {
+                nextBuffer.append(data)
             }
-            guard data.count <= maxBodySize else {
+
+            if nextBuffer.count > maxBodySize + 4096 {
                 send(status: 413, message: "Payload Too Large", connection: connection)
                 return
             }
-            guard let request = HTTPRequest(data: data) else {
-                send(status: 400, message: "Bad Request", connection: connection)
-                return
-            }
-            guard request.method == "POST", request.path == "/events" else {
-                send(status: 404, message: "Not Found", connection: connection)
+
+            if let request = HTTPRequest(data: nextBuffer) {
+                handle(request: request, connection: connection, handler: handler)
                 return
             }
 
-            do {
-                let event = try EventNormalizer.normalize(request.body)
-                handler(event)
-                send(status: 202, message: "Accepted", connection: connection)
-            } catch {
+            if isComplete {
                 send(status: 400, message: "Bad Request", connection: connection)
+                return
             }
+
+            receiveRequest(connection: connection, buffer: nextBuffer, maxBodySize: maxBodySize, handler: handler)
+        }
+    }
+
+    private static func handle(request: HTTPRequest, connection: NWConnection, handler: @escaping EventHandler) {
+        guard request.method == "POST", request.path == "/events" else {
+            send(status: 404, message: "Not Found", connection: connection)
+            return
+        }
+
+        do {
+            let event = try EventNormalizer.normalize(request.body)
+            handler(event)
+            send(status: 202, message: "Accepted", connection: connection)
+        } catch {
+            send(status: 400, message: "Bad Request", connection: connection)
         }
     }
 
     private static func send(status: Int, message: String, connection: NWConnection) {
-        let response = """
-        HTTP/1.1 \(status) \(message)\r
-        Content-Length: 0\r
-        Connection: close\r
-        \r
-        """
+        let response = "HTTP/1.1 \(status) \(message)\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
         connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in
             connection.cancel()
         })
@@ -93,8 +110,24 @@ private struct HTTPRequest {
         guard parts.count >= 2 else {
             return nil
         }
+        let contentLength = HTTPRequest.contentLength(from: header)
+        let body = Data(data[separator.upperBound...])
+        guard body.count >= contentLength else {
+            return nil
+        }
         self.method = String(parts[0])
         self.path = String(parts[1])
-        self.body = Data(data[separator.upperBound...])
+        self.body = Data(body.prefix(contentLength))
+    }
+
+    private static func contentLength(from header: String) -> Int {
+        for line in header.components(separatedBy: "\r\n") {
+            let parts = line.split(separator: ":", maxSplits: 1)
+            guard parts.count == 2 else { continue }
+            if parts[0].trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "content-length" {
+                return Int(parts[1].trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+            }
+        }
+        return 0
     }
 }

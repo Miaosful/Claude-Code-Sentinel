@@ -28,6 +28,7 @@ Date: 2026-06-24
 ## Manual Smoke Checks
 
 - [x] `cc-sentinel-hook` writes fallback JSONL when receiver is unavailable.
+- [x] `cc-sentinel-hook` posts to a running receiver, which persists `waiting_approval` in the session store without fallback.
 - [x] `cc-sentinel-wrapper` passes through `/bin/echo hello` and writes start/end lifecycle fallback events.
 - [x] `CCSentinelApp` builds and launches briefly from SwiftPM.
 
