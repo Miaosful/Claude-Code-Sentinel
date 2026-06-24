@@ -70,3 +70,31 @@ try testPermissionRequestBecomesWaitingApprovalEvent()
 testRedactsTokenLikeValues()
 print("PASS: EventNormalizerTests")
 print("PASS: RedactorTests")
+
+func testPermissionRequestMarksSessionWaitingApproval() {
+    var store = SessionStore()
+    store.apply(.init(
+        kind: .permissionRequest,
+        sessionID: "s1",
+        source: .vscode,
+        cwd: "/repo",
+        toolName: "Bash",
+        toolSummary: "command=pnpm test"
+    ))
+
+    assertEqual(store.sessions.first?.status, .some(.waitingApproval), "permission request marks waiting approval")
+    assertEqual(store.aggregateStatus, .waitingApproval, "permission request updates aggregate status")
+}
+
+func testPostToolUseClearsWaitingApproval() {
+    var store = SessionStore()
+    store.apply(.init(kind: .permissionRequest, sessionID: "s1", source: .vscode, cwd: "/repo", toolName: "Bash"))
+    store.apply(.init(kind: .postToolUse, sessionID: "s1", source: .vscode, cwd: "/repo", toolName: "Bash"))
+
+    assertEqual(store.sessions.first?.status, .some(.running), "post tool use clears waiting approval")
+    assertEqual(store.sessions.first?.approvalRequest, nil, "post tool use clears approval request")
+}
+
+testPermissionRequestMarksSessionWaitingApproval()
+testPostToolUseClearsWaitingApproval()
+print("PASS: SessionStoreTests")
