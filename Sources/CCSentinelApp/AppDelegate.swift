@@ -133,5 +133,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         else { return }
 
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        activatePopoverWindow(popover)
+    }
+
+    private func activatePopoverWindow(_ popover: NSPopover) {
+        NSApp.activate(ignoringOtherApps: true)
+        popover.contentViewController?.view.window?.makeKeyAndOrderFront(nil)
     }
 }
