@@ -34,7 +34,7 @@ The installer previews and merges `~/.claude/settings.json`, adding CC Sentinel-
 - `SessionEnd`
 - `Notification`
 
-Every CC Sentinel-managed entry is marked with `cc-sentinel-managed: true`.
+CC Sentinel-managed entries are written as Claude command hooks and are identified by the `cc-sentinel-hook` command name during upgrades and uninstall.
 
 ## Backup And Uninstall
 
@@ -44,7 +44,7 @@ Before writing Claude settings, the installer should create a timestamped backup
 ~/.claude/settings.json.cc-sentinel-backup-YYYYMMDD-HHMMSS
 ```
 
-Uninstall removes only entries marked with `cc-sentinel-managed: true`; user hooks are preserved.
+Uninstall removes only hook commands named `cc-sentinel-hook`; user hooks are preserved.
 
 ## Pause And Auto Approval
 

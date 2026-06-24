@@ -34,7 +34,7 @@ script/build_and_run.sh --verify
 - `SessionEnd`
 - `Notification`
 
-每个由 CC Sentinel 管理的配置项都会带有 `cc-sentinel-managed: true` 标记。
+CC Sentinel 管理的配置会写成 Claude command hook，并在升级或卸载时通过 `cc-sentinel-hook` 命令名识别。
 
 ## 备份与卸载
 
@@ -44,7 +44,7 @@ script/build_and_run.sh --verify
 ~/.claude/settings.json.cc-sentinel-backup-YYYYMMDD-HHMMSS
 ```
 
-卸载时只删除带 `cc-sentinel-managed: true` 的配置项，不删除用户已有 hooks。
+卸载时只删除命令名为 `cc-sentinel-hook` 的 hook，不删除用户已有 hooks。
 
 ## 暂停与自动审批
 

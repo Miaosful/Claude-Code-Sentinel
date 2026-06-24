@@ -15,6 +15,17 @@ func assertTrue(_ condition: Bool, _ message: String) {
     }
 }
 
+func parseJSONObject(_ json: String) throws -> [String: Any] {
+    guard
+        let data = json.data(using: .utf8),
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else {
+        print("FAIL: Could not parse JSON object.")
+        Foundation.exit(1)
+    }
+    return object
+}
+
 assertEqual(CCSentinelVersion.current, "0.1.0", "core module exposes version")
 print("PASS: FoundationSmokeTests")
 
@@ -393,7 +404,7 @@ try testWrapperProcessStartUsesVscodeSource()
 print("PASS: WrapperTests")
 
 func testInstallerPreservesUnrelatedSettingsAndAddsManagedHook() throws {
-    let existing = #"{"theme":"dark","hooks":{"Stop":[{"command":"echo keep"}]}}"#
+    let existing = #"{"theme":"dark","hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo keep"}]}]}}"#
     let result = try HookSettingsInstaller.previewInstall(
         existingSettingsJSON: existing,
         hookBinaryPath: "/opt/cc/cc-sentinel-hook"
@@ -402,12 +413,47 @@ func testInstallerPreservesUnrelatedSettingsAndAddsManagedHook() throws {
     assertTrue(result.previewJSON.contains(#""theme""#), "installer preserves unrelated settings")
     assertTrue(result.previewJSON.contains("echo keep"), "installer preserves unmarked hooks")
     assertTrue(result.previewJSON.contains("cc-sentinel-hook"), "installer adds sentinel hook")
-    assertTrue(result.previewJSON.contains("cc-sentinel-managed"), "installer marks managed hooks")
+    assertTrue(result.previewJSON.contains(#""type" : "command""#), "installer writes command hook type")
+}
+
+func testInstallerWritesClaudeHookConfigurationShape() throws {
+    let result = try HookSettingsInstaller.previewInstall(
+        existingSettingsJSON: #"{"theme":"dark"}"#,
+        hookBinaryPath: "/opt/cc/cc-sentinel-hook"
+    )
+    let root = try parseJSONObject(result.previewJSON)
+    let hooks = root["hooks"] as? [String: Any]
+    let sessionStartEntries = hooks?["SessionStart"] as? [[String: Any]]
+    let firstEntryHooks = sessionStartEntries?.first?["hooks"] as? [[String: Any]]
+    let commandHook = firstEntryHooks?.first
+
+    assertEqual(commandHook?["type"] as? String, "command", "installer writes Claude command hook type")
+    assertEqual(commandHook?["command"] as? String, "/opt/cc/cc-sentinel-hook", "installer writes Claude command hook command")
+    assertTrue(sessionStartEntries?.first?["command"] == nil, "installer does not write legacy direct command entry")
+}
+
+func testInstallerReplacesLegacyManagedHookShape() throws {
+    let existing = """
+    {"hooks":{"SessionStart":[{"command":"/old/cc-sentinel-hook","cc-sentinel-managed":true}]}}
+    """
+
+    let result = try HookSettingsInstaller.previewInstall(
+        existingSettingsJSON: existing,
+        hookBinaryPath: "/new/cc-sentinel-hook"
+    )
+    let root = try parseJSONObject(result.previewJSON)
+    let hooks = root["hooks"] as? [String: Any]
+    let sessionStartEntries = hooks?["SessionStart"] as? [[String: Any]]
+    let firstEntryHooks = sessionStartEntries?.first?["hooks"] as? [[String: Any]]
+
+    assertTrue(result.previewJSON.contains("/new/cc-sentinel-hook"), "installer writes new hook shape from legacy install")
+    assertTrue(!result.previewJSON.contains("/old/cc-sentinel-hook"), "installer removes legacy direct command entry")
+    assertTrue(firstEntryHooks?.isEmpty == false, "installer replacement includes nested hooks array")
 }
 
 func testInstallerReplacesOldManagedHookPath() throws {
     let existing = """
-    {"hooks":{"PermissionRequest":[{"command":"/old/cc-sentinel-hook","cc-sentinel-managed":true},{"command":"echo keep"}]}}
+    {"hooks":{"PermissionRequest":[{"hooks":[{"type":"command","command":"/old/cc-sentinel-hook"},{"type":"command","command":"echo keep"}]}]}}
     """
 
     let result = try HookSettingsInstaller.previewInstall(
@@ -422,18 +468,18 @@ func testInstallerReplacesOldManagedHookPath() throws {
 
 func testUninstallRemovesOnlyManagedHook() throws {
     let existing = """
-    {"hooks":{"Stop":[{"command":"echo keep"},{"command":"/opt/cc/cc-sentinel-hook","cc-sentinel-managed":true}]}}
+    {"hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo keep"},{"type":"command","command":"/opt/cc/cc-sentinel-hook"}]}]}}
     """
 
     let result = try HookSettingsInstaller.previewUninstall(existingSettingsJSON: existing)
 
     assertTrue(result.previewJSON.contains("echo keep"), "uninstall keeps unmarked hook")
     assertTrue(!result.previewJSON.contains("cc-sentinel-hook"), "uninstall removes managed hook")
-    assertTrue(!result.previewJSON.contains("cc-sentinel-managed"), "uninstall removes managed marker")
+    assertTrue(result.previewJSON.contains(#""hooks""#), "uninstall keeps valid hook wrapper")
 }
 
 func testInstallerDetectsManagedHooks() throws {
-    let missing = #"{"hooks":{"Stop":[{"command":"echo keep"}]}}"#
+    let missing = #"{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo keep"}]}]}}"#
     let installed = try HookSettingsInstaller.previewInstall(
         existingSettingsJSON: missing,
         hookBinaryPath: "/opt/cc/cc-sentinel-hook"
@@ -473,7 +519,7 @@ func testInstallerApplyUninstallCreatesBackupAndRemovesManagedHook() throws {
     let settingsURL = directory.appendingPathComponent("settings.json")
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     try """
-    {"hooks":{"Stop":[{"command":"echo keep"},{"command":"/opt/cc/cc-sentinel-hook","cc-sentinel-managed":true}]}}
+    {"hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo keep"},{"type":"command","command":"/opt/cc/cc-sentinel-hook"}]}]}}
     """.write(to: settingsURL, atomically: true, encoding: .utf8)
 
     let backupURL = try HookSettingsInstaller.applyUninstall(
@@ -486,11 +532,13 @@ func testInstallerApplyUninstallCreatesBackupAndRemovesManagedHook() throws {
 
     assertTrue(updated.contains("echo keep"), "apply uninstall keeps user hook")
     assertTrue(!updated.contains("cc-sentinel-hook"), "apply uninstall removes managed hook")
-    assertTrue(backup.contains("cc-sentinel-managed"), "apply uninstall writes pre-change backup")
+    assertTrue(backup.contains("cc-sentinel-hook"), "apply uninstall writes pre-change backup")
     try? FileManager.default.removeItem(at: directory)
 }
 
 try testInstallerPreservesUnrelatedSettingsAndAddsManagedHook()
+try testInstallerWritesClaudeHookConfigurationShape()
+try testInstallerReplacesLegacyManagedHookShape()
 try testInstallerReplacesOldManagedHookPath()
 try testUninstallRemovesOnlyManagedHook()
 try testInstallerDetectsManagedHooks()

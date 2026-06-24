@@ -15,6 +15,7 @@ public enum HookSettingsInstaller {
     }
 
     private static let managedMarker = "cc-sentinel-managed"
+    private static let managedCommandName = "cc-sentinel-hook"
     private static let hookEvents = [
         "SessionStart",
         "PermissionRequest",
@@ -33,13 +34,14 @@ public enum HookSettingsInstaller {
         var hooks = root["hooks"] as? [String: Any] ?? [:]
 
         for event in hookEvents {
-            var entries = hooks[event] as? [[String: Any]] ?? []
-            entries = entries.filter { entry in
-                (entry[managedMarker] as? Bool) != true
-            }
+            var entries = hookEntries(from: hooks[event]).compactMap(removingManagedHooks(from:))
             entries.append([
-                "command": hookBinaryPath,
-                managedMarker: true
+                "hooks": [
+                    [
+                        "type": "command",
+                        "command": hookBinaryPath
+                    ]
+                ]
             ])
             hooks[event] = entries
         }
@@ -53,12 +55,7 @@ public enum HookSettingsInstaller {
         var hooks = root["hooks"] as? [String: Any] ?? [:]
 
         for (event, value) in hooks {
-            guard let entries = value as? [[String: Any]] else {
-                continue
-            }
-            let unmanagedEntries = entries.filter { entry in
-                (entry[managedMarker] as? Bool) != true
-            }
+            let unmanagedEntries = hookEntries(from: value).compactMap(removingManagedHooks(from:))
             if unmanagedEntries.isEmpty {
                 hooks.removeValue(forKey: event)
             } else {
@@ -75,10 +72,8 @@ public enum HookSettingsInstaller {
         let hooks = root["hooks"] as? [String: Any] ?? [:]
 
         for event in hookEvents {
-            guard let entries = hooks[event] as? [[String: Any]] else {
-                continue
-            }
-            if entries.contains(where: { ($0[managedMarker] as? Bool) == true }) {
+            let entries = hookEntries(from: hooks[event])
+            if entries.contains(where: containsManagedHook) {
                 return true
             }
         }
@@ -140,6 +135,58 @@ public enum HookSettingsInstaller {
             throw InstallerError.cannotSerializeSettings
         }
         return json
+    }
+
+    private static func hookEntries(from value: Any?) -> [[String: Any]] {
+        value as? [[String: Any]] ?? []
+    }
+
+    private static func removingManagedHooks(from entry: [String: Any]) -> [String: Any]? {
+        if isLegacyManagedEntry(entry) {
+            return nil
+        }
+
+        guard let commandHooks = entry["hooks"] as? [[String: Any]] else {
+            return entry
+        }
+
+        let unmanagedHooks = commandHooks.filter { !isManagedHook($0) }
+        guard !unmanagedHooks.isEmpty else {
+            return nil
+        }
+
+        var updatedEntry = entry
+        updatedEntry["hooks"] = unmanagedHooks
+        return updatedEntry
+    }
+
+    private static func containsManagedHook(_ entry: [String: Any]) -> Bool {
+        if isLegacyManagedEntry(entry) {
+            return true
+        }
+        let commandHooks = entry["hooks"] as? [[String: Any]] ?? []
+        return commandHooks.contains(where: isManagedHook)
+    }
+
+    private static func isLegacyManagedEntry(_ entry: [String: Any]) -> Bool {
+        if (entry[managedMarker] as? Bool) == true {
+            return true
+        }
+        return isManagedCommand(entry["command"] as? String)
+    }
+
+    private static func isManagedHook(_ hook: [String: Any]) -> Bool {
+        if (hook[managedMarker] as? Bool) == true {
+            return true
+        }
+        return isManagedCommand(hook["command"] as? String)
+    }
+
+    private static func isManagedCommand(_ command: String?) -> Bool {
+        guard let command else {
+            return false
+        }
+        return URL(fileURLWithPath: command).lastPathComponent == managedCommandName
     }
 
     private static func readSettings(from url: URL) throws -> String {
