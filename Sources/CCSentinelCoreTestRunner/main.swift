@@ -188,3 +188,60 @@ func testLocalizationFilesCoverAllKeys() throws {
 
 try testLocalizationFilesCoverAllKeys()
 print("PASS: LocalizationCoverageTests")
+
+func testDefaultPolicyAsksForEveryTool() {
+    let decision = ApprovalPolicy.default.evaluate(
+        tool: "Bash",
+        command: "pnpm test",
+        cwd: "/repo",
+        workspace: "/repo"
+    )
+
+    assertEqual(decision, .ask, "default policy asks")
+}
+
+func testLowRiskReadCanBeAllowedWhenUserOptedIn() {
+    var policy = ApprovalPolicy.default
+    policy.allowWorkspaceReads = true
+
+    let decision = policy.evaluate(
+        tool: "Read",
+        command: "README.md",
+        cwd: "/repo",
+        workspace: "/repo"
+    )
+
+    assertEqual(decision, .allow, "opted-in read is allowed")
+}
+
+func testGitPushIsDeniedByDefault() {
+    let decision = ApprovalPolicy.default.evaluate(
+        tool: "Bash",
+        command: "git push origin main",
+        cwd: "/repo",
+        workspace: "/repo"
+    )
+
+    assertEqual(decision, .deny, "git push is denied")
+}
+
+func testRecordingAutoApprovalIncrementsTodayAndTotal() {
+    var stats = AutoApprovalStats()
+    stats.record(
+        toolName: "Read",
+        summary: "README.md",
+        workspace: "/repo",
+        at: Date(timeIntervalSince1970: 1_800_000_000)
+    )
+
+    assertEqual(stats.todayCount(now: Date(timeIntervalSince1970: 1_800_000_100)), 1, "today count increments")
+    assertEqual(stats.totalCount, 1, "total count increments")
+    assertEqual(stats.lastEvent?.toolName, .some("Read"), "last event is recorded")
+}
+
+testDefaultPolicyAsksForEveryTool()
+testLowRiskReadCanBeAllowedWhenUserOptedIn()
+testGitPushIsDeniedByDefault()
+testRecordingAutoApprovalIncrementsTodayAndTotal()
+print("PASS: ApprovalPolicyTests")
+print("PASS: AutoApprovalStatsTests")

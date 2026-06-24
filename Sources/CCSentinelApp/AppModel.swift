@@ -4,13 +4,20 @@ import CCSentinelCore
 @MainActor
 final class AppModel: ObservableObject {
     @Published private(set) var store = SessionStore()
+    @Published private var autoApprovalStats = AutoApprovalStats()
     @Published var monitoringPaused = false
     @Published var autoApprovalEnabled = false
-    @Published var autoApprovedToday = 0
-    @Published var autoApprovedTotal = 0
 
     var aggregateStatus: AggregateStatus {
         monitoringPaused ? .degraded : store.aggregateStatus
+    }
+
+    var autoApprovedToday: Int {
+        autoApprovalStats.todayCount()
+    }
+
+    var autoApprovedTotal: Int {
+        autoApprovalStats.totalCount
     }
 
     func apply(_ event: NormalizedEvent) {
@@ -29,5 +36,9 @@ final class AppModel: ObservableObject {
             session.status != .stale && session.status != .ended
         }
         store = SessionStore(sessions: active)
+    }
+
+    func recordAutoApproval(toolName: String, summary: String, workspace: String) {
+        autoApprovalStats.record(toolName: toolName, summary: summary, workspace: workspace)
     }
 }
