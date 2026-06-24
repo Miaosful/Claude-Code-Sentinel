@@ -1,0 +1,1280 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CC Sentinel Status Bar Prototype</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --desktop: #eef1f5;
+      --menubar: rgba(248, 249, 251, 0.78);
+      --menubar-border: rgba(18, 23, 31, 0.12);
+      --popover: rgba(248, 249, 251, 0.86);
+      --popover-strong: rgba(255, 255, 255, 0.72);
+      --row: rgba(255, 255, 255, 0.62);
+      --row-hover: rgba(255, 255, 255, 0.82);
+      --text: #15171c;
+      --muted: #657080;
+      --faint: #8b95a3;
+      --border: rgba(24, 31, 42, 0.12);
+      --shadow: 0 28px 80px rgba(15, 23, 42, 0.18), 0 4px 16px rgba(15, 23, 42, 0.1);
+      --blue: #1d6fe8;
+      --green: #1f9d5a;
+      --amber: #c47a10;
+      --red: #d33f49;
+      --graphite: #3c4655;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --desktop: #101318;
+      --menubar: rgba(29, 33, 39, 0.76);
+      --menubar-border: rgba(255, 255, 255, 0.12);
+      --popover: rgba(31, 35, 42, 0.88);
+      --popover-strong: rgba(45, 51, 60, 0.76);
+      --row: rgba(48, 54, 63, 0.66);
+      --row-hover: rgba(58, 65, 76, 0.82);
+      --text: #f5f7fb;
+      --muted: #b8c0cc;
+      --faint: #85909e;
+      --border: rgba(255, 255, 255, 0.13);
+      --shadow: 0 28px 80px rgba(0, 0, 0, 0.44), 0 4px 16px rgba(0, 0, 0, 0.24);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      color: var(--text);
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+        radial-gradient(circle at 48% 32%, rgba(255, 255, 255, 0.38), transparent 34rem),
+        var(--desktop);
+      background-size: 32px 32px, 32px 32px, auto, auto;
+      letter-spacing: 0;
+      overflow: hidden;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .desktop {
+      position: relative;
+      min-height: 100vh;
+      padding: 56px 28px 28px;
+    }
+
+    .menu-bar {
+      position: fixed;
+      inset: 0 0 auto;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px 0 16px;
+      background: var(--menubar);
+      border-bottom: 1px solid var(--menubar-border);
+      backdrop-filter: blur(24px) saturate(1.25);
+      -webkit-backdrop-filter: blur(24px) saturate(1.25);
+      z-index: 10;
+      user-select: none;
+    }
+
+    .menu-left,
+    .menu-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .app-wordmark {
+      font-size: 13px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .menu-item {
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .status-button {
+      height: 26px;
+      min-width: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 7px;
+      color: var(--text);
+      background: transparent;
+      cursor: pointer;
+      transition: background 160ms ease-out, color 160ms ease-out;
+      position: relative;
+    }
+
+    .status-button:hover,
+    .status-button[aria-expanded="true"] {
+      background: rgba(127, 137, 152, 0.16);
+    }
+
+    .status-button:focus-visible,
+    .icon-button:focus-visible,
+    .action:focus-visible,
+    .stat-action:focus-visible,
+    .segment:focus-visible,
+    .toggle:focus-visible {
+      outline: 3px solid rgba(29, 111, 232, 0.34);
+      outline-offset: 2px;
+    }
+
+    .sentinel-icon {
+      width: 21px;
+      height: 21px;
+      display: block;
+    }
+
+    .sentinel-ring {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      opacity: 0.88;
+    }
+
+    .sentinel-sweep {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.1;
+      stroke-linecap: round;
+      transform-origin: 12px 12px;
+      opacity: 0.95;
+    }
+
+    .sentinel-dot {
+      fill: currentColor;
+    }
+
+    .state-idle .status-button {
+      color: var(--graphite);
+    }
+
+    .state-running .status-button {
+      color: var(--green);
+    }
+
+    .state-working .status-button {
+      color: var(--blue);
+    }
+
+    .state-approval .status-button {
+      color: var(--amber);
+    }
+
+    .state-degraded .status-button {
+      color: var(--red);
+    }
+
+    .state-running .sentinel-sweep,
+    .state-working .sentinel-sweep {
+      animation: sweep 1.8s cubic-bezier(.2, .8, .2, 1) infinite;
+    }
+
+    .state-approval .status-button::after {
+      content: "";
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 0 3px rgba(211, 63, 73, 0.18);
+      animation: pulse 1.7s ease-out infinite;
+    }
+
+    @keyframes sweep {
+      0% { transform: rotate(-42deg); opacity: .38; }
+      55% { opacity: 1; }
+      100% { transform: rotate(318deg); opacity: .38; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(.88); }
+      50% { transform: scale(1.12); }
+    }
+
+    .popover {
+      position: fixed;
+      top: 42px;
+      right: 14px;
+      width: min(382px, calc(100vw - 24px));
+      max-height: calc(100vh - 58px);
+      overflow: auto;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--popover);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(34px) saturate(1.3);
+      -webkit-backdrop-filter: blur(34px) saturate(1.3);
+      transform-origin: top right;
+      transform: translateY(-6px) scale(.98);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 160ms ease-out, transform 160ms ease-out;
+      z-index: 20;
+    }
+
+    .popover.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0) scale(1);
+    }
+
+    .popover-header {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      padding: 2px 2px 12px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      color: var(--text);
+      background: var(--popover-strong);
+      border: 1px solid var(--border);
+    }
+
+    .title {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.2;
+      font-weight: 720;
+    }
+
+    .subtitle {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    .icon-button {
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--popover-strong);
+      color: var(--muted);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: background 160ms ease-out, color 160ms ease-out;
+    }
+
+    .icon-button:hover {
+      background: var(--row-hover);
+      color: var(--text);
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--popover-strong);
+    }
+
+    .summary-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 620;
+    }
+
+    .summary-title {
+      font-size: 19px;
+      font-weight: 760;
+      line-height: 1.16;
+    }
+
+    .summary-detail {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .radar {
+      width: 54px;
+      height: 54px;
+      color: var(--status);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--status);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--status) 18%, transparent);
+    }
+
+    .state-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 24px;
+      padding: 0 8px;
+      border: 1px solid color-mix(in srgb, var(--status) 28%, var(--border));
+      border-radius: 999px;
+      color: var(--status);
+      background: color-mix(in srgb, var(--status) 10%, transparent);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .section-title {
+      margin: 14px 2px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 760;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .session-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .session {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      background: var(--row);
+      transition: background 160ms ease-out, border-color 160ms ease-out;
+    }
+
+    .session:hover {
+      background: var(--row-hover);
+      border-color: color-mix(in srgb, var(--status) 24%, var(--border));
+    }
+
+    .session-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .session-state {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      font-size: 13px;
+      font-weight: 720;
+    }
+
+    .source {
+      flex: none;
+      border-radius: 6px;
+      padding: 3px 6px;
+      font-size: 10.5px;
+      font-weight: 760;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: var(--source);
+      background: color-mix(in srgb, var(--source) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--source) 28%, transparent);
+    }
+
+    .path {
+      margin: 8px 0 7px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tool-line {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 7px;
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.35;
+      min-width: 0;
+    }
+
+    .tool-name {
+      color: var(--muted);
+      font-weight: 650;
+    }
+
+    .tool-value {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+      font-size: 11.5px;
+    }
+
+    .time {
+      color: var(--faint);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .divider {
+      height: 1px;
+      margin: 12px -12px 10px;
+      background: var(--border);
+    }
+
+    .control-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+    }
+
+    .segments {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 3px;
+      padding: 3px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(127, 137, 152, 0.12);
+    }
+
+    .segment {
+      min-height: 30px;
+      padding: 0 7px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 160ms ease-out, color 160ms ease-out;
+      white-space: nowrap;
+    }
+
+    .segment[aria-pressed="true"] {
+      color: var(--text);
+      background: var(--popover-strong);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--row);
+    }
+
+    .toggle-copy {
+      min-width: 0;
+    }
+
+    .toggle-title {
+      font-size: 13px;
+      font-weight: 720;
+    }
+
+    .toggle-subtitle {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11.5px;
+      line-height: 1.35;
+    }
+
+    .toggle {
+      width: 44px;
+      height: 26px;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(127, 137, 152, 0.28);
+      padding: 3px;
+      cursor: pointer;
+      flex: none;
+      transition: background 160ms ease-out;
+    }
+
+    .toggle span {
+      display: block;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.22);
+      transform: translateX(0);
+      transition: transform 160ms ease-out;
+    }
+
+    .toggle[aria-pressed="true"] {
+      background: var(--red);
+    }
+
+    .toggle[aria-pressed="true"] span {
+      transform: translateX(18px);
+    }
+
+    .approval-stats {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 8px;
+    }
+
+    .stat-card {
+      min-height: 72px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--row);
+    }
+
+    .stat-value {
+      font-size: 25px;
+      line-height: 1;
+      font-weight: 780;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+    }
+
+    .stat-label {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 11.5px;
+      line-height: 1.25;
+      font-weight: 650;
+    }
+
+    .stat-trend {
+      margin-top: 3px;
+      color: var(--green);
+      font-size: 10.5px;
+      line-height: 1.25;
+      font-weight: 700;
+    }
+
+    .stat-log {
+      min-height: 38px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 8px 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--popover-strong);
+    }
+
+    .stat-log-copy {
+      min-width: 0;
+      color: var(--muted);
+      font-size: 11.5px;
+      line-height: 1.35;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .stat-action {
+      min-height: 28px;
+      padding: 0 9px;
+      border: 1px solid color-mix(in srgb, var(--green) 28%, var(--border));
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--green) 11%, transparent);
+      color: var(--green);
+      font-size: 11px;
+      font-weight: 760;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 160ms ease-out, border-color 160ms ease-out, opacity 160ms ease-out;
+    }
+
+    .stat-action:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--green) 17%, transparent);
+      border-color: color-mix(in srgb, var(--green) 42%, var(--border));
+    }
+
+    .stat-action:disabled {
+      cursor: not-allowed;
+      opacity: .48;
+    }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .action {
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--popover-strong);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 720;
+      cursor: pointer;
+      transition: background 160ms ease-out, border-color 160ms ease-out;
+    }
+
+    .action:hover {
+      background: var(--row-hover);
+      border-color: color-mix(in srgb, var(--blue) 24%, var(--border));
+    }
+
+    .action.primary {
+      color: #fff;
+      background: var(--blue);
+      border-color: var(--blue);
+    }
+
+    .action.primary:hover {
+      background: #155fc8;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translate(-50%, 12px);
+      opacity: 0;
+      pointer-events: none;
+      min-width: 260px;
+      max-width: calc(100vw - 32px);
+      padding: 11px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--popover);
+      color: var(--text);
+      box-shadow: 0 16px 50px rgba(15, 23, 42, 0.18);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      font-size: 13px;
+      font-weight: 650;
+      transition: opacity 180ms ease-out, transform 180ms ease-out;
+      z-index: 30;
+      text-align: center;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .dock {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      padding: 9px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(248, 249, 251, 0.48);
+      backdrop-filter: blur(22px) saturate(1.2);
+      -webkit-backdrop-filter: blur(22px) saturate(1.2);
+      box-shadow: 0 12px 34px rgba(15, 23, 42, 0.12);
+    }
+
+    [data-theme="dark"] .dock {
+      background: rgba(31, 35, 42, 0.58);
+    }
+
+    .dock-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: var(--popover-strong);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    .hint {
+      position: absolute;
+      left: 28px;
+      top: 68px;
+      width: min(410px, calc(100vw - 56px));
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(248, 249, 251, 0.52);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    [data-theme="dark"] .hint {
+      background: rgba(31, 35, 42, 0.58);
+    }
+
+    .hint strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    svg {
+      display: block;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 700px) {
+      body {
+        overflow: auto;
+      }
+
+      .desktop {
+        min-height: 100vh;
+        padding: 48px 10px 92px;
+      }
+
+      .menu-left .menu-item:nth-child(n+3) {
+        display: none;
+      }
+
+      .menu-right .menu-item {
+        display: none;
+      }
+
+      .popover {
+        left: 10px;
+        right: 10px;
+        width: auto;
+      }
+
+      .hint {
+        position: static;
+        margin: 18px 0;
+        width: auto;
+      }
+
+      .segments {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .segment:last-child {
+        grid-column: span 2;
+      }
+
+      .stat-log {
+        grid-template-columns: 1fr;
+      }
+
+      .stat-action {
+        width: 100%;
+      }
+
+      .action-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="state-approval" data-theme="light">
+  <div class="menu-bar" aria-label="macOS menu bar mockup">
+    <div class="menu-left">
+      <div class="app-wordmark">CC Sentinel</div>
+      <div class="menu-item">File</div>
+      <div class="menu-item">Sessions</div>
+      <div class="menu-item">Settings</div>
+    </div>
+    <div class="menu-right">
+      <div class="menu-item" id="clock">Wed 10:24</div>
+      <button class="status-button" id="statusButton" aria-label="Open CC Sentinel status" aria-haspopup="dialog" aria-expanded="true">
+        <svg class="sentinel-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle class="sentinel-ring" cx="12" cy="12" r="8.2"></circle>
+          <path class="sentinel-sweep" d="M12 12 L18 7"></path>
+          <circle class="sentinel-dot" cx="12" cy="12" r="2.2"></circle>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <main class="desktop">
+    <section class="hint" aria-label="prototype note">
+      <strong>CC Sentinel visual prototype</strong>
+      点击右上角状态栏图标打开或关闭菜单。使用菜单内的状态切换、自动审批开关、安装 hooks、暂停监控来模拟核心交互。
+    </section>
+
+    <aside class="popover open" id="popover" role="dialog" aria-label="CC Sentinel status popover">
+      <header class="popover-header">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"></circle>
+            <path d="M12 12 18 7" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"></path>
+            <circle cx="12" cy="12" r="2.2" fill="currentColor"></circle>
+          </svg>
+        </div>
+        <div>
+          <h1 class="title">CC Sentinel</h1>
+          <div class="subtitle" id="headerSubtitle">2 sessions · 1 needs approval</div>
+        </div>
+        <button class="icon-button" id="themeButton" aria-label="Toggle dark mode">
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3v2.2M12 18.8V21M4.7 4.7l1.55 1.55M17.75 17.75l1.55 1.55M3 12h2.2M18.8 12H21M4.7 19.3l1.55-1.55M17.75 6.25 19.3 4.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+            <circle cx="12" cy="12" r="4.1" fill="none" stroke="currentColor" stroke-width="1.8"></circle>
+          </svg>
+        </button>
+      </header>
+
+      <section class="summary" aria-live="polite">
+        <div>
+          <div class="summary-label"><span class="status-dot"></span><span id="summaryLabel">Current state</span></div>
+          <div class="summary-title" id="summaryTitle">Waiting Approval</div>
+          <div class="summary-detail" id="summaryDetail">VS Code session is blocked on a Bash permission request.</div>
+        </div>
+        <svg class="radar" viewBox="0 0 64 64" aria-hidden="true">
+          <circle cx="32" cy="32" r="22" fill="none" stroke="currentColor" stroke-width="2" opacity=".28"></circle>
+          <circle cx="32" cy="32" r="11" fill="none" stroke="currentColor" stroke-width="2" opacity=".28"></circle>
+          <path d="M32 32 49 17" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+          <circle cx="32" cy="32" r="3.2" fill="currentColor"></circle>
+        </svg>
+      </section>
+
+      <div class="section-title">
+        <span>Sessions</span>
+        <span id="sessionCount">2 active</span>
+      </div>
+
+      <section class="session-list" id="sessionList" aria-label="Claude Code sessions"></section>
+
+      <div class="divider"></div>
+
+      <div class="section-title">
+        <span>State simulator</span>
+        <span>Prototype</span>
+      </div>
+
+      <div class="segments" role="group" aria-label="Simulate CC Sentinel state">
+        <button class="segment" data-state="idle" aria-pressed="false">Idle</button>
+        <button class="segment" data-state="running" aria-pressed="false">Running</button>
+        <button class="segment" data-state="working" aria-pressed="false">Working</button>
+        <button class="segment" data-state="approval" aria-pressed="true">Approval</button>
+        <button class="segment" data-state="degraded" aria-pressed="false">Degraded</button>
+      </div>
+
+      <div class="toggle-row" style="margin-top: 10px;">
+        <div class="toggle-copy">
+          <div class="toggle-title">Auto approval policy</div>
+          <div class="toggle-subtitle" id="autoCopy">Off · CC Sentinel will only notify you.</div>
+        </div>
+        <button class="toggle" id="autoToggle" aria-label="Toggle auto approval policy" aria-pressed="false"><span></span></button>
+      </div>
+
+      <section class="approval-stats" aria-label="Auto approval statistics">
+        <div class="stat-grid">
+          <article class="stat-card">
+            <div class="stat-value" id="autoTodayCount">3</div>
+            <div class="stat-label">Today auto-approved</div>
+            <div class="stat-trend" id="autoTodayTrend">+3 since 09:00</div>
+          </article>
+          <article class="stat-card">
+            <div class="stat-value" id="autoTotalCount">47</div>
+            <div class="stat-label">Total auto-approved</div>
+            <div class="stat-trend" id="autoTotalTrend">Across 8 sessions</div>
+          </article>
+        </div>
+        <div class="stat-log">
+          <div class="stat-log-copy" id="autoLastAction">Last auto allow · Bash · pnpm test -- --runInBand</div>
+          <button class="stat-action" id="simulateAutoButton" disabled>Record auto allow</button>
+        </div>
+      </section>
+
+      <div class="action-grid">
+        <button class="action primary" id="installButton">
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3v11M7.5 9.5 12 14l4.5-4.5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+          Install hooks
+        </button>
+        <button class="action" id="pauseButton">
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 5v14M16 5v14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path>
+          </svg>
+          Pause monitoring
+        </button>
+        <button class="action" id="clearButton">
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7h16M9 7V5h6v2M10 11v6M14 11v6M6 7l1 13h10l1-13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+          Clear stale
+        </button>
+        <button class="action" id="copyButton">
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="9" y="9" width="10" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+          </svg>
+          Copy details
+        </button>
+      </div>
+    </aside>
+
+    <div class="dock" aria-hidden="true">
+      <div class="dock-icon">
+        <svg width="23" height="23" viewBox="0 0 24 24"><path d="M5 5h14v14H5z" fill="none" stroke="currentColor" stroke-width="1.8"></path><path d="M8 9h8M8 13h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
+      </div>
+      <div class="dock-icon">
+        <svg width="23" height="23" viewBox="0 0 24 24"><path d="m8 17 4-10 4 10M9.4 13h5.2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      </div>
+      <div class="dock-icon" style="color: var(--blue);">
+        <svg width="23" height="23" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.8"></circle><path d="M12 12 18 7" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"></path><circle cx="12" cy="12" r="2.2" fill="currentColor"></circle></svg>
+      </div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const stateData = {
+      idle: {
+        title: "Idle",
+        detail: "No active Claude Code sessions are reporting through hooks.",
+        subtitle: "No active sessions",
+        count: "0 active",
+        status: "#3c4655",
+        sessions: []
+      },
+      running: {
+        title: "Running",
+        detail: "Two sessions are alive and reporting normal hook events.",
+        subtitle: "2 sessions · all clear",
+        count: "2 active",
+        status: "#1f9d5a",
+        sessions: [
+          { state: "Running", source: "VS Code", sourceColor: "#1d6fe8", path: "/Users/m1/projects/maodou", tool: "Read", value: "docs/superpowers/specs", time: "00:28", color: "#1f9d5a" },
+          { state: "Running", source: "CLI", sourceColor: "#3c4655", path: "/Users/m1/projects/api", tool: "Edit", value: "src/server.ts", time: "01:06", color: "#1f9d5a" }
+        ]
+      },
+      working: {
+        title: "Working",
+        detail: "Claude is actively using tools. The status ring keeps scanning quietly.",
+        subtitle: "2 sessions · tools active",
+        count: "2 active",
+        status: "#1d6fe8",
+        sessions: [
+          { state: "Working", source: "VS Code", sourceColor: "#1d6fe8", path: "/Users/m1/projects/maodou", tool: "Bash", value: "pnpm exec tsx scripts/check.ts", time: "00:42", color: "#1d6fe8" },
+          { state: "Idle", source: "CLI", sourceColor: "#3c4655", path: "/Users/m1/projects/api", tool: "Stop", value: "turn completed", time: "02:11", color: "#8b95a3" }
+        ]
+      },
+      approval: {
+        title: "Waiting Approval",
+        detail: "VS Code session is blocked on a Bash permission request.",
+        subtitle: "2 sessions · 1 needs approval",
+        count: "2 active",
+        status: "#c47a10",
+        sessions: [
+          { state: "Needs Approval", source: "VS Code", sourceColor: "#1d6fe8", path: "/Users/m1/projects/maodou", tool: "Bash", value: "pnpm test -- --runInBand", time: "02:14", color: "#c47a10" },
+          { state: "Running", source: "CLI", sourceColor: "#3c4655", path: "/Users/m1/projects/api", tool: "Edit", value: "src/server.ts", time: "00:31", color: "#1f9d5a" }
+        ]
+      },
+      degraded: {
+        title: "Degraded",
+        detail: "A Claude process exists, but hook events have stopped arriving.",
+        subtitle: "1 stale session · hooks silent",
+        count: "1 stale",
+        status: "#d33f49",
+        sessions: [
+          { state: "Stale", source: "Unknown", sourceColor: "#d33f49", path: "/Users/m1/projects/legacy", tool: "Last event", value: "PermissionRequest", time: "11:48", color: "#d33f49" }
+        ]
+      }
+    };
+
+    const body = document.body;
+    const popover = document.getElementById("popover");
+    const statusButton = document.getElementById("statusButton");
+    const summaryTitle = document.getElementById("summaryTitle");
+    const summaryDetail = document.getElementById("summaryDetail");
+    const headerSubtitle = document.getElementById("headerSubtitle");
+    const sessionCount = document.getElementById("sessionCount");
+    const sessionList = document.getElementById("sessionList");
+    const segments = [...document.querySelectorAll(".segment")];
+    const toast = document.getElementById("toast");
+    const autoToggle = document.getElementById("autoToggle");
+    const autoCopy = document.getElementById("autoCopy");
+    const autoTodayCount = document.getElementById("autoTodayCount");
+    const autoTotalCount = document.getElementById("autoTotalCount");
+    const autoTodayTrend = document.getElementById("autoTodayTrend");
+    const autoLastAction = document.getElementById("autoLastAction");
+    const simulateAutoButton = document.getElementById("simulateAutoButton");
+    const installButton = document.getElementById("installButton");
+    const pauseButton = document.getElementById("pauseButton");
+    const clearButton = document.getElementById("clearButton");
+    const copyButton = document.getElementById("copyButton");
+    const themeButton = document.getElementById("themeButton");
+
+    let currentState = "approval";
+    let paused = false;
+    let hooksInstalled = false;
+    let autoToday = 3;
+    let autoTotal = 47;
+    let lastAutoAction = "Last auto allow · Bash · pnpm test -- --runInBand";
+
+    function autoApprovalEnabled() {
+      return autoToggle.getAttribute("aria-pressed") === "true";
+    }
+
+    function renderAutoStats() {
+      const enabled = autoApprovalEnabled();
+      autoTodayCount.textContent = autoToday.toLocaleString("en-US");
+      autoTotalCount.textContent = autoTotal.toLocaleString("en-US");
+      autoTodayTrend.textContent = autoToday === 0 ? "No auto approvals today" : `+${autoToday} since 09:00`;
+      autoLastAction.textContent = lastAutoAction;
+      simulateAutoButton.disabled = !enabled;
+      simulateAutoButton.setAttribute("aria-disabled", String(!enabled));
+      autoCopy.textContent = enabled
+        ? `On · ${autoToday.toLocaleString("en-US")} today, ${autoTotal.toLocaleString("en-US")} total auto-approved.`
+        : "Off · CC Sentinel will only notify you.";
+    }
+
+    function setState(next) {
+      currentState = next;
+      body.className = `state-${next}`;
+      const data = stateData[next];
+      document.documentElement.style.setProperty("--status", data.status);
+      summaryTitle.textContent = paused ? "Monitoring Paused" : data.title;
+      summaryDetail.textContent = paused ? "Events are being ignored until monitoring is resumed." : data.detail;
+      headerSubtitle.textContent = paused ? "Paused · local events ignored" : data.subtitle;
+      sessionCount.textContent = paused ? "paused" : data.count;
+
+      segments.forEach(button => {
+        button.setAttribute("aria-pressed", String(button.dataset.state === next));
+      });
+
+      sessionList.innerHTML = "";
+      if (paused) {
+        sessionList.appendChild(emptyRow("Monitoring is paused", "Resume monitoring to refresh session state."));
+        return;
+      }
+      if (data.sessions.length === 0) {
+        sessionList.appendChild(emptyRow("No active sessions", "Claude Code hooks will appear here when a session starts."));
+        return;
+      }
+      data.sessions.forEach(session => sessionList.appendChild(sessionRow(session)));
+    }
+
+    function emptyRow(title, detail) {
+      const row = document.createElement("article");
+      row.className = "session";
+      row.innerHTML = `
+        <div class="session-top">
+          <div class="session-state"><span class="status-dot" style="--status:#8b95a3"></span>${title}</div>
+          <span class="source" style="--source:#657080">System</span>
+        </div>
+        <div class="path">${detail}</div>
+      `;
+      return row;
+    }
+
+    function sessionRow(session) {
+      const row = document.createElement("article");
+      row.className = "session";
+      row.style.setProperty("--status", session.color);
+      row.innerHTML = `
+        <div class="session-top">
+          <div class="session-state"><span class="status-dot"></span>${session.state}</div>
+          <span class="source" style="--source:${session.sourceColor}">${session.source}</span>
+        </div>
+        <div class="path" title="${session.path}">${session.path}</div>
+        <div class="tool-line">
+          <span class="tool-name">${session.tool}</span>
+          <span class="tool-value" title="${session.value}">${session.value}</span>
+          <span class="time">${session.time}</span>
+        </div>
+      `;
+      return row;
+    }
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      window.clearTimeout(showToast.timer);
+      showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 1900);
+    }
+
+    statusButton.addEventListener("click", () => {
+      const open = popover.classList.toggle("open");
+      statusButton.setAttribute("aria-expanded", String(open));
+    });
+
+    segments.forEach(button => {
+      button.addEventListener("click", () => {
+        paused = false;
+        pauseButton.innerHTML = `
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 5v14M16 5v14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path>
+          </svg>
+          Pause monitoring
+        `;
+        setState(button.dataset.state);
+      });
+    });
+
+    autoToggle.addEventListener("click", () => {
+      const enabled = autoToggle.getAttribute("aria-pressed") !== "true";
+      autoToggle.setAttribute("aria-pressed", String(enabled));
+      renderAutoStats();
+      showToast(enabled ? "Auto approval policy enabled for low-risk actions" : "Auto approval policy disabled");
+    });
+
+    simulateAutoButton.addEventListener("click", () => {
+      if (!autoApprovalEnabled()) {
+        showToast("Enable auto approval policy first");
+        return;
+      }
+      autoToday += 1;
+      autoTotal += 1;
+      lastAutoAction = "Just now · Bash · pnpm test -- --runInBand";
+      renderAutoStats();
+      if (currentState === "approval" && !paused) {
+        setState("working");
+      }
+      showToast("Auto approval recorded and counters updated");
+    });
+
+    installButton.addEventListener("click", () => {
+      hooksInstalled = !hooksInstalled;
+      installButton.classList.toggle("primary", !hooksInstalled);
+      installButton.innerHTML = hooksInstalled
+        ? `<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Hooks installed`
+        : `<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11M7.5 9.5 12 14l4.5-4.5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Install hooks`;
+      showToast(hooksInstalled ? "Hooks installed with settings backup" : "Hooks marked for reinstall");
+    });
+
+    pauseButton.addEventListener("click", () => {
+      paused = !paused;
+      pauseButton.innerHTML = paused
+        ? `<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7Z" fill="currentColor"></path></svg>Resume monitoring`
+        : `<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path></svg>Pause monitoring`;
+      setState(currentState);
+      showToast(paused ? "Monitoring paused" : "Monitoring resumed");
+    });
+
+    clearButton.addEventListener("click", () => {
+      if (currentState === "degraded") {
+        setState("idle");
+        showToast("Stale session cleared");
+      } else {
+        showToast("No stale sessions to clear");
+      }
+    });
+
+    copyButton.addEventListener("click", async () => {
+      const text = `CC Sentinel: ${stateData[currentState].title} · ${stateData[currentState].subtitle}`;
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast("Session details copied");
+      } catch {
+        showToast("Copy simulated in prototype");
+      }
+    });
+
+    themeButton.addEventListener("click", () => {
+      const nextTheme = body.dataset.theme === "dark" ? "light" : "dark";
+      body.dataset.theme = nextTheme;
+      showToast(`${nextTheme === "dark" ? "Dark" : "Light"} appearance`);
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && popover.classList.contains("open")) {
+        popover.classList.remove("open");
+        statusButton.setAttribute("aria-expanded", "false");
+        statusButton.focus();
+      }
+    });
+
+    const clock = document.getElementById("clock");
+    function updateClock() {
+      const date = new Date();
+      const day = date.toLocaleDateString("en-US", { weekday: "short" });
+      const time = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      clock.textContent = `${day} ${time}`;
+    }
+
+    updateClock();
+    setInterval(updateClock, 30000);
+    renderAutoStats();
+    setState("approval");
+  </script>
+</body>
+</html>
