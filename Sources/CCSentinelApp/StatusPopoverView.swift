@@ -18,6 +18,7 @@ struct StatusPopoverView: View {
                 autoApprovalStats
             }
             .padding(14)
+            .padding(.bottom, 10)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(width: 382, alignment: .topLeading)

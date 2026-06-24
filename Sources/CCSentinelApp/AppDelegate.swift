@@ -49,6 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startStatsRefresh()
         controller.update(status: model.aggregateStatus)
         syncWaitingPulse(status: model.aggregateStatus)
+        openPopoverOnLaunchIfRequested()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -107,16 +108,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         waitingPulseHighlighted = false
     }
 
+    private func openPopoverOnLaunchIfRequested() {
+        guard ProcessInfo.processInfo.environment["CC_SENTINEL_OPEN_POPOVER_ON_LAUNCH"] == "1" else {
+            return
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            showPopover()
+        }
+    }
+
     private func togglePopover() {
+        guard popover?.isShown != true else {
+            popover?.performClose(nil)
+            return
+        }
+        showPopover()
+    }
+
+    private func showPopover() {
         guard
             let button = menuBarController?.button,
             let popover
         else { return }
 
-        if popover.isShown {
-            popover.performClose(nil)
-        } else {
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        }
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
 }
