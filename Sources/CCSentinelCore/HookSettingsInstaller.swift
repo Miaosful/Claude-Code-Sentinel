@@ -34,16 +34,13 @@ public enum HookSettingsInstaller {
 
         for event in hookEvents {
             var entries = hooks[event] as? [[String: Any]] ?? []
-            let alreadyInstalled = entries.contains { entry in
-                (entry[managedMarker] as? Bool) == true &&
-                    (entry["command"] as? String) == hookBinaryPath
+            entries = entries.filter { entry in
+                (entry[managedMarker] as? Bool) != true
             }
-            if !alreadyInstalled {
-                entries.append([
-                    "command": hookBinaryPath,
-                    managedMarker: true
-                ])
-            }
+            entries.append([
+                "command": hookBinaryPath,
+                managedMarker: true
+            ])
             hooks[event] = entries
         }
 
@@ -117,7 +114,7 @@ public enum HookSettingsInstaller {
         }
         let data = try JSONSerialization.data(
             withJSONObject: object,
-            options: [.prettyPrinted, .sortedKeys]
+            options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         )
         guard let json = String(data: data, encoding: .utf8) else {
             throw InstallerError.cannotSerializeSettings

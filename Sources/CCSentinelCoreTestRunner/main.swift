@@ -355,6 +355,21 @@ func testInstallerPreservesUnrelatedSettingsAndAddsManagedHook() throws {
     assertTrue(result.previewJSON.contains("cc-sentinel-managed"), "installer marks managed hooks")
 }
 
+func testInstallerReplacesOldManagedHookPath() throws {
+    let existing = """
+    {"hooks":{"PermissionRequest":[{"command":"/old/cc-sentinel-hook","cc-sentinel-managed":true},{"command":"echo keep"}]}}
+    """
+
+    let result = try HookSettingsInstaller.previewInstall(
+        existingSettingsJSON: existing,
+        hookBinaryPath: "/new/cc-sentinel-hook"
+    )
+
+    assertTrue(result.previewJSON.contains("/new/cc-sentinel-hook"), "installer writes new managed hook path")
+    assertTrue(!result.previewJSON.contains("/old/cc-sentinel-hook"), "installer removes old managed hook path")
+    assertTrue(result.previewJSON.contains("echo keep"), "installer keeps unmanaged hook")
+}
+
 func testUninstallRemovesOnlyManagedHook() throws {
     let existing = """
     {"hooks":{"Stop":[{"command":"echo keep"},{"command":"/opt/cc/cc-sentinel-hook","cc-sentinel-managed":true}]}}
@@ -413,6 +428,7 @@ func testInstallerApplyUninstallCreatesBackupAndRemovesManagedHook() throws {
 }
 
 try testInstallerPreservesUnrelatedSettingsAndAddsManagedHook()
+try testInstallerReplacesOldManagedHookPath()
 try testUninstallRemovesOnlyManagedHook()
 try testInstallerApplyCreatesBackupAndWritesPreview()
 try testInstallerApplyUninstallCreatesBackupAndRemovesManagedHook()

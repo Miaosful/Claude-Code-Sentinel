@@ -96,14 +96,23 @@ struct StatusPopoverView: View {
 
     @ViewBuilder
     private var integrationMessage: some View {
-        if let key = model.integrationMessageKey {
-            Text(localized(key))
-                .font(.caption)
-                .foregroundStyle(key == .hooksFailed ? .red : .secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
-                .background(.quaternary.opacity(0.25))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+        if let message = model.integrationMessage {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(localized(message.key))
+                    .font(.caption.weight(.semibold))
+                if !message.detail.isEmpty {
+                    Text(message.detail)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                }
+            }
+            .foregroundStyle(message.isError ? .red : .secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(8)
+            .background(.quaternary.opacity(0.25))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }
 

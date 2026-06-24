@@ -13,7 +13,7 @@ final class AppModel: ObservableObject {
             persistAutoApprovalSettings()
         }
     }
-    @Published var integrationMessageKey: L10nKey?
+    @Published var integrationMessage: IntegrationMessage?
 
     private let storeURL: URL
     private let autoApprovalSettingsURL: URL
@@ -89,22 +89,22 @@ final class AppModel: ObservableObject {
 
     func installHooks() {
         do {
-            try HookSettingsInstaller.applyInstall(
+            let backupURL = try HookSettingsInstaller.applyInstall(
                 settingsURL: settingsURL,
                 hookBinaryPath: hookBinaryURL.path
             )
-            integrationMessageKey = .hooksInstalled
+            integrationMessage = IntegrationMessage(key: .hooksInstalled, detail: backupURL.path, isError: false)
         } catch {
-            integrationMessageKey = .hooksFailed
+            integrationMessage = IntegrationMessage(key: .hooksFailed, detail: String(describing: error), isError: true)
         }
     }
 
     func uninstallHooks() {
         do {
-            try HookSettingsInstaller.applyUninstall(settingsURL: settingsURL)
-            integrationMessageKey = .hooksUninstalled
+            let backupURL = try HookSettingsInstaller.applyUninstall(settingsURL: settingsURL)
+            integrationMessage = IntegrationMessage(key: .hooksUninstalled, detail: backupURL.path, isError: false)
         } catch {
-            integrationMessageKey = .hooksFailed
+            integrationMessage = IntegrationMessage(key: .hooksFailed, detail: String(describing: error), isError: true)
         }
     }
 
@@ -145,6 +145,12 @@ final class AppModel: ObservableObject {
             ?? FileManager.default.currentDirectoryPathURL
         return executableDirectory.appendingPathComponent("cc-sentinel-hook")
     }
+}
+
+struct IntegrationMessage: Equatable {
+    var key: L10nKey
+    var detail: String
+    var isError: Bool
 }
 
 private extension FileManager {
