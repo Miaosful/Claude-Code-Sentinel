@@ -32,7 +32,7 @@ struct StatusPopoverView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay {
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(.separator.opacity(0.35), lineWidth: 1)
+                        .stroke(Color.ccPanelBorder, lineWidth: 1)
                 }
             VStack(alignment: .leading, spacing: 2) {
                 Text(localized(.appName))
@@ -76,7 +76,7 @@ struct StatusPopoverView: View {
         .background(Color.ccCardBackground)
         .overlay {
             RoundedRectangle(cornerRadius: 12)
-                .stroke(.separator.opacity(0.35), lineWidth: 1)
+                .stroke(Color.ccPanelBorder, lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
@@ -116,7 +116,7 @@ struct StatusPopoverView: View {
         .background(Color.orange.opacity(0.10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.orange.opacity(0.32), lineWidth: 1)
+                .stroke(Color.orange.opacity(0.44), lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
@@ -152,6 +152,10 @@ struct StatusPopoverView: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
                     .background(.secondary.opacity(0.10))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(Color.ccControlBorder, lineWidth: 1)
+                    }
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             }
             Text(localized(model.requiresHookSetup ? .hooksMissingDetail : .noActiveSessionsDetail))
@@ -163,7 +167,7 @@ struct StatusPopoverView: View {
         .background(Color.ccMutedPanelBackground)
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .stroke(.separator.opacity(0.25), lineWidth: 1)
+                .stroke(Color.ccPanelBorder, lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
@@ -195,7 +199,7 @@ struct StatusPopoverView: View {
         .background(Color.ccMutedPanelBackground)
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .stroke(.separator.opacity(0.25), lineWidth: 1)
+                .stroke(Color.ccPanelBorder, lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
@@ -259,7 +263,7 @@ struct StatusPopoverView: View {
             .background(Color.ccMutedPanelBackground)
             .overlay {
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke((message.isError ? Color.red : Color.secondary).opacity(0.20), lineWidth: 1)
+                    .stroke(message.isError ? Color.red.opacity(0.44) : Color.ccPanelBorder, lineWidth: 1)
             }
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
@@ -289,7 +293,7 @@ struct StatusPopoverView: View {
         .background(Color.ccCardBackground)
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .stroke(.separator.opacity(0.25), lineWidth: 1)
+                .stroke(Color.ccPanelBorder, lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
@@ -321,7 +325,7 @@ struct StatusPopoverView: View {
         .background(sessionBackground(for: session))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .stroke(session.status == .waitingApproval ? Color.orange.opacity(0.35) : Color.primary.opacity(0.10), lineWidth: 1)
+                .stroke(session.status == .waitingApproval ? Color.orange.opacity(0.44) : Color.ccPanelBorder, lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
@@ -399,7 +403,7 @@ struct StatusPopoverView: View {
         .background(Color.ccCardBackground)
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .stroke(.separator.opacity(0.25), lineWidth: 1)
+                .stroke(Color.ccPanelBorder, lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
@@ -567,6 +571,8 @@ private extension Color {
     static let ccCardBackground = Color(red: 0.98, green: 0.99, blue: 0.98)
     static let ccMutedPanelBackground = Color(red: 0.89, green: 0.90, blue: 0.89)
     static let ccSecondaryButtonBackground = Color(red: 0.86, green: 0.87, blue: 0.86)
+    static let ccPanelBorder = Color(red: 0.74, green: 0.76, blue: 0.75)
+    static let ccControlBorder = Color(red: 0.68, green: 0.70, blue: 0.69)
 }
 
 private struct SentinelMark: View {
@@ -631,7 +637,7 @@ private struct CCActionButtonStyle: ButtonStyle {
             .background(background(configuration: configuration))
             .overlay {
                 RoundedRectangle(cornerRadius: 9)
-                    .stroke(kind == .primary ? Color.blue.opacity(0.0) : Color.primary.opacity(0.10), lineWidth: 1)
+                    .stroke(kind == .primary ? Color.white.opacity(0.22) : Color.ccControlBorder, lineWidth: 1)
             }
             .clipShape(RoundedRectangle(cornerRadius: 9))
     }
