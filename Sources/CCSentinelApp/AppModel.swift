@@ -8,6 +8,13 @@ final class AppModel: ObservableObject {
     @Published var monitoringPaused = false
     @Published var autoApprovalEnabled = false
 
+    private let storeURL: URL
+
+    init(storeURL: URL = AppModel.defaultStoreURL()) {
+        self.storeURL = storeURL
+        self.store = (try? SessionStorePersistence.load(from: storeURL)) ?? SessionStore()
+    }
+
     var aggregateStatus: AggregateStatus {
         monitoringPaused ? .degraded : store.aggregateStatus
     }
@@ -25,6 +32,7 @@ final class AppModel: ObservableObject {
             return
         }
         store.apply(event)
+        persistStore()
     }
 
     func pauseOrResumeMonitoring() {
@@ -36,9 +44,23 @@ final class AppModel: ObservableObject {
             session.status != .stale && session.status != .ended
         }
         store = SessionStore(sessions: active)
+        persistStore()
     }
 
     func recordAutoApproval(toolName: String, summary: String, workspace: String) {
         autoApprovalStats.record(toolName: toolName, summary: summary, workspace: workspace)
+    }
+
+    private func persistStore() {
+        try? SessionStorePersistence.save(store, to: storeURL)
+    }
+
+    private static func defaultStoreURL() -> URL {
+        let applicationSupport = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
+            .first ?? FileManager.default.temporaryDirectory
+        return applicationSupport
+            .appendingPathComponent("CC Sentinel", isDirectory: true)
+            .appendingPathComponent("session-store.json")
     }
 }

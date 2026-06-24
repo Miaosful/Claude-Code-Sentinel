@@ -73,6 +73,31 @@ public enum HookSettingsInstaller {
         return HookSettingsPreview(previewJSON: try serialize(root))
     }
 
+    @discardableResult
+    public static func applyInstall(
+        settingsURL: URL,
+        hookBinaryPath: String,
+        timestamp: String? = nil
+    ) throws -> URL {
+        let existing = try readSettings(from: settingsURL)
+        let backupURL = try writeBackup(existing, settingsURL: settingsURL, timestamp: timestamp ?? defaultTimestamp())
+        let preview = try previewInstall(existingSettingsJSON: existing, hookBinaryPath: hookBinaryPath)
+        try writeSettings(preview.previewJSON, to: settingsURL)
+        return backupURL
+    }
+
+    @discardableResult
+    public static func applyUninstall(
+        settingsURL: URL,
+        timestamp: String? = nil
+    ) throws -> URL {
+        let existing = try readSettings(from: settingsURL)
+        let backupURL = try writeBackup(existing, settingsURL: settingsURL, timestamp: timestamp ?? defaultTimestamp())
+        let preview = try previewUninstall(existingSettingsJSON: existing)
+        try writeSettings(preview.previewJSON, to: settingsURL)
+        return backupURL
+    }
+
     private static func parseRoot(_ json: String) throws -> [String: Any] {
         if json.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return [:]
@@ -98,5 +123,34 @@ public enum HookSettingsInstaller {
             throw InstallerError.cannotSerializeSettings
         }
         return json
+    }
+
+    private static func readSettings(from url: URL) throws -> String {
+        if FileManager.default.fileExists(atPath: url.path) {
+            return try String(contentsOf: url, encoding: .utf8)
+        }
+        return "{}"
+    }
+
+    private static func writeSettings(_ json: String, to url: URL) throws {
+        let directory = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try json.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private static func writeBackup(_ existing: String, settingsURL: URL, timestamp: String) throws -> URL {
+        let backupURL = URL(fileURLWithPath: settingsURL.path + ".cc-sentinel-backup-\(timestamp)")
+        let directory = backupURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try existing.write(to: backupURL, atomically: true, encoding: .utf8)
+        return backupURL
+    }
+
+    private static func defaultTimestamp() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        return formatter.string(from: Date())
     }
 }

@@ -117,6 +117,34 @@ testPostToolUseClearsWaitingApproval()
 testStaleTimeoutMarksOldRunningSessionsStale()
 print("PASS: SessionStoreTests")
 
+func testSessionStorePersistenceRoundTripsJSON() throws {
+    let url = FileManager.default.temporaryDirectory
+        .appendingPathComponent("cc-sentinel-store-\(UUID().uuidString)")
+        .appendingPathExtension("json")
+    let store = SessionStore(sessions: [
+        ClaudeSession(
+            id: "persisted",
+            source: .vscode,
+            cwd: "/repo",
+            status: .waitingApproval,
+            lastToolName: "Bash",
+            lastToolSummary: "command=pnpm test",
+            lastEventAt: Date(timeIntervalSince1970: 123)
+        )
+    ])
+
+    try SessionStorePersistence.save(store, to: url)
+    let loaded = try SessionStorePersistence.load(from: url)
+
+    assertEqual(loaded.sessions.first?.id, .some("persisted"), "persisted store keeps session id")
+    assertEqual(loaded.sessions.first?.status, .some(.waitingApproval), "persisted store keeps status")
+    assertEqual(loaded.aggregateStatus, .waitingApproval, "persisted store keeps aggregate status")
+    try? FileManager.default.removeItem(at: url)
+}
+
+try testSessionStorePersistenceRoundTripsJSON()
+print("PASS: SessionStorePersistenceTests")
+
 func testHookForwarderWritesFallbackWhenReceiverIsUnavailable() async throws {
     let temp = FileManager.default.temporaryDirectory
         .appendingPathComponent("cc-sentinel-\(UUID().uuidString)")
@@ -185,8 +213,55 @@ func testUninstallRemovesOnlyManagedHook() throws {
     assertTrue(!result.previewJSON.contains("cc-sentinel-managed"), "uninstall removes managed marker")
 }
 
+func testInstallerApplyCreatesBackupAndWritesPreview() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("cc-sentinel-settings-\(UUID().uuidString)", isDirectory: true)
+    let settingsURL = directory.appendingPathComponent("settings.json")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    try #"{"theme":"dark"}"#.write(to: settingsURL, atomically: true, encoding: .utf8)
+
+    let backupURL = try HookSettingsInstaller.applyInstall(
+        settingsURL: settingsURL,
+        hookBinaryPath: "/opt/cc/cc-sentinel-hook",
+        timestamp: "20260624-120000"
+    )
+
+    let updated = try String(contentsOf: settingsURL, encoding: .utf8)
+    let backup = try String(contentsOf: backupURL, encoding: .utf8)
+
+    assertTrue(updated.contains("cc-sentinel-hook"), "apply install writes managed hook")
+    assertTrue(updated.contains(#""theme""#), "apply install keeps existing settings")
+    assertEqual(backup, #"{"theme":"dark"}"#, "apply install writes backup")
+    try? FileManager.default.removeItem(at: directory)
+}
+
+func testInstallerApplyUninstallCreatesBackupAndRemovesManagedHook() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("cc-sentinel-settings-\(UUID().uuidString)", isDirectory: true)
+    let settingsURL = directory.appendingPathComponent("settings.json")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    try """
+    {"hooks":{"Stop":[{"command":"echo keep"},{"command":"/opt/cc/cc-sentinel-hook","cc-sentinel-managed":true}]}}
+    """.write(to: settingsURL, atomically: true, encoding: .utf8)
+
+    let backupURL = try HookSettingsInstaller.applyUninstall(
+        settingsURL: settingsURL,
+        timestamp: "20260624-120001"
+    )
+
+    let updated = try String(contentsOf: settingsURL, encoding: .utf8)
+    let backup = try String(contentsOf: backupURL, encoding: .utf8)
+
+    assertTrue(updated.contains("echo keep"), "apply uninstall keeps user hook")
+    assertTrue(!updated.contains("cc-sentinel-hook"), "apply uninstall removes managed hook")
+    assertTrue(backup.contains("cc-sentinel-managed"), "apply uninstall writes pre-change backup")
+    try? FileManager.default.removeItem(at: directory)
+}
+
 try testInstallerPreservesUnrelatedSettingsAndAddsManagedHook()
 try testUninstallRemovesOnlyManagedHook()
+try testInstallerApplyCreatesBackupAndWritesPreview()
+try testInstallerApplyUninstallCreatesBackupAndRemovesManagedHook()
 print("PASS: HookSettingsInstallerTests")
 
 func testLocalizationFilesCoverAllKeys() throws {
