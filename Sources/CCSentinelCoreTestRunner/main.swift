@@ -432,6 +432,19 @@ func testUninstallRemovesOnlyManagedHook() throws {
     assertTrue(!result.previewJSON.contains("cc-sentinel-managed"), "uninstall removes managed marker")
 }
 
+func testInstallerDetectsManagedHooks() throws {
+    let missing = #"{"hooks":{"Stop":[{"command":"echo keep"}]}}"#
+    let installed = try HookSettingsInstaller.previewInstall(
+        existingSettingsJSON: missing,
+        hookBinaryPath: "/opt/cc/cc-sentinel-hook"
+    ).previewJSON
+    let uninstalled = try HookSettingsInstaller.previewUninstall(existingSettingsJSON: installed).previewJSON
+
+    assertTrue(!(try HookSettingsInstaller.hasManagedHooks(existingSettingsJSON: missing)), "installer reports missing managed hooks")
+    assertTrue(try HookSettingsInstaller.hasManagedHooks(existingSettingsJSON: installed), "installer reports installed managed hooks")
+    assertTrue(!(try HookSettingsInstaller.hasManagedHooks(existingSettingsJSON: uninstalled)), "installer reports removed managed hooks")
+}
+
 func testInstallerApplyCreatesBackupAndWritesPreview() throws {
     let directory = FileManager.default.temporaryDirectory
         .appendingPathComponent("cc-sentinel-settings-\(UUID().uuidString)", isDirectory: true)
@@ -480,6 +493,7 @@ func testInstallerApplyUninstallCreatesBackupAndRemovesManagedHook() throws {
 try testInstallerPreservesUnrelatedSettingsAndAddsManagedHook()
 try testInstallerReplacesOldManagedHookPath()
 try testUninstallRemovesOnlyManagedHook()
+try testInstallerDetectsManagedHooks()
 try testInstallerApplyCreatesBackupAndWritesPreview()
 try testInstallerApplyUninstallCreatesBackupAndRemovesManagedHook()
 print("PASS: HookSettingsInstallerTests")

@@ -14,6 +14,7 @@ final class AppModel: ObservableObject {
         }
     }
     @Published var integrationMessage: IntegrationMessage?
+    @Published private(set) var hooksInstalled = false
 
     private let storeURL: URL
     private let autoApprovalSettingsURL: URL
@@ -43,6 +44,7 @@ final class AppModel: ObservableObject {
             )
         self.autoApprovalEnabled = autoApprovalSettings.enabled
         self.autoApprovalStats = (try? AutoApprovalStatsPersistence.load(from: autoApprovalStatsURL)) ?? AutoApprovalStats()
+        refreshHookInstallationStatus()
         persistAutoApprovalSettings()
     }
 
@@ -62,8 +64,16 @@ final class AppModel: ObservableObject {
         ApprovalFocus.resolve(store: store)
     }
 
+    var requiresHookSetup: Bool {
+        !hooksInstalled && store.sessions.isEmpty
+    }
+
     func refreshAutoApprovalStats() {
         autoApprovalStats = (try? AutoApprovalStatsPersistence.load(from: autoApprovalStatsURL)) ?? autoApprovalStats
+    }
+
+    func refreshHookInstallationStatus() {
+        hooksInstalled = (try? HookSettingsInstaller.hasManagedHooks(settingsURL: settingsURL)) ?? false
     }
 
     func apply(_ event: NormalizedEvent) {
@@ -97,6 +107,7 @@ final class AppModel: ObservableObject {
                 settingsURL: settingsURL,
                 hookBinaryPath: hookBinaryURL.path
             )
+            hooksInstalled = true
             integrationMessage = IntegrationMessage(key: .hooksInstalled, detail: backupURL.path, isError: false)
         } catch {
             integrationMessage = IntegrationMessage(key: .hooksFailed, detail: String(describing: error), isError: true)
@@ -106,6 +117,7 @@ final class AppModel: ObservableObject {
     func uninstallHooks() {
         do {
             let backupURL = try HookSettingsInstaller.applyUninstall(settingsURL: settingsURL)
+            hooksInstalled = false
             integrationMessage = IntegrationMessage(key: .hooksUninstalled, detail: backupURL.path, isError: false)
         } catch {
             integrationMessage = IntegrationMessage(key: .hooksFailed, detail: String(describing: error), isError: true)

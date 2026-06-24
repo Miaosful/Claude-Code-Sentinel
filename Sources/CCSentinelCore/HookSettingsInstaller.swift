@@ -70,6 +70,26 @@ public enum HookSettingsInstaller {
         return HookSettingsPreview(previewJSON: try serialize(root))
     }
 
+    public static func hasManagedHooks(existingSettingsJSON: String) throws -> Bool {
+        let root = try parseRoot(existingSettingsJSON)
+        let hooks = root["hooks"] as? [String: Any] ?? [:]
+
+        for event in hookEvents {
+            guard let entries = hooks[event] as? [[String: Any]] else {
+                continue
+            }
+            if entries.contains(where: { ($0[managedMarker] as? Bool) == true }) {
+                return true
+            }
+        }
+        return false
+    }
+
+    public static func hasManagedHooks(settingsURL: URL) throws -> Bool {
+        let existing = try readSettings(from: settingsURL)
+        return try hasManagedHooks(existingSettingsJSON: existing)
+    }
+
     @discardableResult
     public static func applyInstall(
         settingsURL: URL,

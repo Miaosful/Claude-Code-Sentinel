@@ -132,6 +132,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let popover
         else { return }
 
+        model.refreshHookInstallationStatus()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         activatePopoverWindow(popover)
     }
