@@ -6,6 +6,8 @@ Date: 2026-06-24
 
 - [x] `swift run CCSentinelCoreTestRunner`
 - [x] `swift build`
+- [x] `script/build_and_run.sh --verify`
+- [x] `scripts/simulate-hook-flow.sh`
 
 ## Acceptance Checks
 
@@ -30,7 +32,9 @@ Date: 2026-06-24
 - [x] `cc-sentinel-hook` writes fallback JSONL when receiver is unavailable.
 - [x] `cc-sentinel-hook` posts to a running receiver, which persists `waiting_approval` in the session store without fallback.
 - [x] `cc-sentinel-wrapper` passes through `/bin/echo hello` and writes start/end lifecycle fallback events.
-- [x] `CCSentinelApp` builds and launches briefly from SwiftPM.
+- [x] `CCSentinelApp` builds as a project-local `.app` bundle and launches through `script/build_and_run.sh`.
+- [x] A running `CCSentinelApp` receiver accepts `SessionStart`, `PermissionRequest`, and `PostToolUse`, then persists `running -> waiting_approval -> running`.
+- [x] With opt-in auto-approval settings, a workspace-scoped `Read` permission request emits Claude Code's allow JSON and records an audit event.
 
 ## Remaining MVP Gaps
 

@@ -8,6 +8,20 @@ CC Sentinel includes three local components:
 - `cc-sentinel-hook`: the Claude Code hook event forwarder.
 - `cc-sentinel-wrapper`: the process wrapper for VS Code Claude Code sessions.
 
+## Local Run
+
+The development build can be launched through the project script:
+
+```bash
+script/build_and_run.sh
+```
+
+The script builds `CCSentinelApp`, stages a local `.app` bundle at `dist/CCSentinelApp.app`, and launches the menu bar app. Use this command for launch verification:
+
+```bash
+script/build_and_run.sh --verify
+```
+
 ## Hook Installation
 
 The installer previews and merges `~/.claude/settings.json`, adding CC Sentinel-managed hooks for:
@@ -34,5 +48,11 @@ Uninstall removes only entries marked with `cc-sentinel-managed: true`; user hoo
 
 ## Pause And Auto Approval
 
-Monitoring can be paused from the menu bar popover. Auto approval is disabled by default and should only allow low-risk actions covered by explicit policy.
+Monitoring can be paused from the menu bar popover. Auto approval is disabled by default. When enabled, the current policy only auto-allows workspace-scoped `Read` requests and records today/total audit counters. Outside-workspace reads, edits, Bash, `sudo`, `rm -rf`, `git push`, and other high-risk actions are not auto-approved.
 
+Auto-approval settings and stats are stored by default at:
+
+```text
+~/Library/Application Support/CC Sentinel/auto-approval-settings.json
+~/Library/Application Support/CC Sentinel/auto-approval-stats.json
+```
