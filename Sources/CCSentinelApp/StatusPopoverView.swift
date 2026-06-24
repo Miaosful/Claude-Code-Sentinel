@@ -21,13 +21,14 @@ struct StatusPopoverView: View {
         }
         .frame(width: 382, alignment: .topLeading)
         .frame(maxHeight: 560, alignment: .topLeading)
+        .background(Color.ccPopoverBackground)
     }
 
     private var header: some View {
         HStack(spacing: 10) {
             SentinelMark(color: statusColor)
                 .frame(width: 34, height: 34)
-                .background(.regularMaterial)
+                .background(Color.ccCardBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay {
                     RoundedRectangle(cornerRadius: 10)
@@ -72,7 +73,7 @@ struct StatusPopoverView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial)
+        .background(Color.ccCardBackground)
         .overlay {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(.separator.opacity(0.35), lineWidth: 1)
@@ -159,7 +160,7 @@ struct StatusPopoverView: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.35))
+        .background(Color.ccMutedPanelBackground)
         .overlay {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(.separator.opacity(0.25), lineWidth: 1)
@@ -191,7 +192,7 @@ struct StatusPopoverView: View {
                 .toggleStyle(.switch)
         }
         .padding(10)
-        .background(.quaternary.opacity(0.35))
+        .background(Color.ccMutedPanelBackground)
         .overlay {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(.separator.opacity(0.25), lineWidth: 1)
@@ -255,7 +256,7 @@ struct StatusPopoverView: View {
             .foregroundStyle(message.isError ? .red : .secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
-            .background(.quaternary.opacity(0.35))
+            .background(Color.ccMutedPanelBackground)
             .overlay {
                 RoundedRectangle(cornerRadius: 10)
                     .stroke((message.isError ? Color.red : Color.secondary).opacity(0.20), lineWidth: 1)
@@ -285,7 +286,7 @@ struct StatusPopoverView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
-        .background(.regularMaterial)
+        .background(Color.ccCardBackground)
         .overlay {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(.separator.opacity(0.25), lineWidth: 1)
@@ -376,7 +377,7 @@ struct StatusPopoverView: View {
         if session.status == .waitingApproval {
             Rectangle().fill(Color.orange.opacity(0.10))
         } else {
-            Rectangle().fill(.quaternary.opacity(0.35))
+            Rectangle().fill(Color.ccMutedPanelBackground)
         }
     }
 
@@ -395,7 +396,7 @@ struct StatusPopoverView: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, minHeight: 78, alignment: .leading)
-        .background(.regularMaterial)
+        .background(Color.ccCardBackground)
         .overlay {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(.separator.opacity(0.25), lineWidth: 1)
@@ -561,6 +562,13 @@ private extension AggregateStatus {
     }
 }
 
+private extension Color {
+    static let ccPopoverBackground = Color(red: 0.94, green: 0.95, blue: 0.94)
+    static let ccCardBackground = Color(red: 0.98, green: 0.99, blue: 0.98)
+    static let ccMutedPanelBackground = Color(red: 0.89, green: 0.90, blue: 0.89)
+    static let ccSecondaryButtonBackground = Color(red: 0.86, green: 0.87, blue: 0.86)
+}
+
 private struct SentinelMark: View {
     var color: Color
 
@@ -635,6 +643,9 @@ private struct CCActionButtonStyle: ButtonStyle {
                     .opacity(configuration.isPressed ? 0.82 : 1.0)
             )
         }
-        return AnyShapeStyle(Color.secondary.opacity(configuration.isPressed ? 0.20 : 0.12))
+        return AnyShapeStyle(
+            Color.ccSecondaryButtonBackground
+                .opacity(configuration.isPressed ? 0.76 : 1.0)
+        )
     }
 }
