@@ -222,6 +222,56 @@ func testSessionStoreDumpShowsWaitingApprovalSession() {
 testSessionStoreDumpShowsWaitingApprovalSession()
 print("PASS: SessionStoreDumpTests")
 
+func testApprovalFocusSelectsOldestWaitingApprovalRequest() {
+    let store = SessionStore(sessions: [
+        ClaudeSession(
+            id: "later",
+            source: .cli,
+            cwd: "/repo/later",
+            status: .waitingApproval,
+            lastEventAt: Date(timeIntervalSince1970: 20),
+            waitingSince: Date(timeIntervalSince1970: 20),
+            approvalRequest: ApprovalRequest(
+                toolName: "Edit",
+                summary: "file_path=/repo/later.swift",
+                requestedAt: Date(timeIntervalSince1970: 20)
+            )
+        ),
+        ClaudeSession(
+            id: "earlier",
+            source: .vscode,
+            cwd: "/repo",
+            status: .waitingApproval,
+            lastEventAt: Date(timeIntervalSince1970: 10),
+            waitingSince: Date(timeIntervalSince1970: 10),
+            approvalRequest: ApprovalRequest(
+                toolName: "Bash",
+                summary: "command=pnpm test",
+                requestedAt: Date(timeIntervalSince1970: 10)
+            )
+        )
+    ])
+
+    let focus = ApprovalFocus.resolve(store: store)
+
+    assertEqual(focus?.sessionID, .some("earlier"), "approval focus picks oldest waiting request")
+    assertEqual(focus?.source, .some(.vscode), "approval focus keeps source")
+    assertEqual(focus?.toolName, .some("Bash"), "approval focus keeps tool")
+    assertEqual(focus?.summary, .some("command=pnpm test"), "approval focus keeps summary")
+}
+
+func testApprovalFocusIsNilWithoutWaitingApproval() {
+    let store = SessionStore(sessions: [
+        ClaudeSession(id: "running", source: .cli, cwd: "/repo", status: .running)
+    ])
+
+    assertEqual(ApprovalFocus.resolve(store: store), nil, "approval focus absent when no waiting approval exists")
+}
+
+testApprovalFocusSelectsOldestWaitingApprovalRequest()
+testApprovalFocusIsNilWithoutWaitingApproval()
+print("PASS: ApprovalFocusTests")
+
 func testHookForwarderWritesFallbackWhenReceiverIsUnavailable() async throws {
     let temp = FileManager.default.temporaryDirectory
         .appendingPathComponent("cc-sentinel-\(UUID().uuidString)")

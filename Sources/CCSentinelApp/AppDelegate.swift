@@ -10,6 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var popover: NSPopover?
     private var receiver: EventReceiver?
     private var statsTimer: Timer?
+    private var waitingPulseTimer: Timer?
+    private var waitingPulseHighlighted = false
     private var cancellables: Set<AnyCancellable> = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -31,22 +33,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.$store
             .sink { [weak self] store in
                 self?.menuBarController?.update(status: store.aggregateStatus)
+                self?.syncWaitingPulse(status: store.aggregateStatus)
             }
             .store(in: &cancellables)
 
         model.$monitoringPaused
             .sink { [weak self] _ in
-                self?.menuBarController?.update(status: self?.model.aggregateStatus ?? .idle)
+                let status = self?.model.aggregateStatus ?? .idle
+                self?.menuBarController?.update(status: status)
+                self?.syncWaitingPulse(status: status)
             }
             .store(in: &cancellables)
 
         startReceiver()
         startStatsRefresh()
         controller.update(status: model.aggregateStatus)
+        syncWaitingPulse(status: model.aggregateStatus)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         statsTimer?.invalidate()
+        waitingPulseTimer?.invalidate()
         receiver?.stop()
     }
 
@@ -70,6 +77,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.model.refreshAutoApprovalStats()
             }
         }
+    }
+
+    private func syncWaitingPulse(status: AggregateStatus) {
+        if status == .waitingApproval {
+            startWaitingPulse()
+        } else {
+            stopWaitingPulse()
+        }
+    }
+
+    private func startWaitingPulse() {
+        guard waitingPulseTimer == nil else {
+            return
+        }
+        waitingPulseHighlighted = false
+        waitingPulseTimer = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.waitingPulseHighlighted.toggle()
+                self.menuBarController?.pulseWaitingApproval(self.waitingPulseHighlighted)
+            }
+        }
+    }
+
+    private func stopWaitingPulse() {
+        waitingPulseTimer?.invalidate()
+        waitingPulseTimer = nil
+        waitingPulseHighlighted = false
     }
 
     private func togglePopover() {

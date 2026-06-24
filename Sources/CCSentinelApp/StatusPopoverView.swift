@@ -8,6 +8,7 @@ struct StatusPopoverView: View {
         VStack(alignment: .leading, spacing: 12) {
             header
             summary
+            approvalRequest
             Divider()
             sessions
             Divider()
@@ -48,6 +49,51 @@ struct StatusPopoverView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    @ViewBuilder
+    private var approvalRequest: some View {
+        if let focus = model.approvalFocus {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(localized(.approvalRequestTitle), systemImage: "hand.raised.fill")
+                    .font(.headline)
+                    .foregroundStyle(.orange)
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 5) {
+                    GridRow {
+                        fieldLabel(.approvalTool)
+                        Text(focus.toolName)
+                            .font(.caption.weight(.semibold))
+                    }
+                    GridRow {
+                        fieldLabel(.approvalSource)
+                        Text(focus.source.rawValue.uppercased())
+                            .font(.caption)
+                    }
+                    GridRow {
+                        fieldLabel(.approvalWorkspace)
+                        Text(focus.cwd)
+                            .font(.caption)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    GridRow {
+                        fieldLabel(.approvalSummary)
+                        Text(focus.summary)
+                            .font(.caption)
+                            .lineLimit(2)
+                            .truncationMode(.middle)
+                    }
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.orange.opacity(0.12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(.orange.opacity(0.45), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
     }
 
     private var sessions: some View {
@@ -147,10 +193,36 @@ struct StatusPopoverView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
+            if let summary = session.lastToolSummary, !summary.isEmpty {
+                Text(summary)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
         }
         .padding(10)
-        .background(.quaternary.opacity(0.35))
+        .background(sessionBackground(for: session))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(session.status == .waitingApproval ? Color.orange.opacity(0.45) : Color.clear, lineWidth: 1)
+        }
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func fieldLabel(_ key: L10nKey) -> some View {
+        Text(localized(key))
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private func sessionBackground(for session: ClaudeSession) -> some View {
+        if session.status == .waitingApproval {
+            Rectangle().fill(Color.orange.opacity(0.12))
+        } else {
+            Rectangle().fill(.quaternary.opacity(0.35))
+        }
     }
 
     private func statCard(title: String, value: Int) -> some View {

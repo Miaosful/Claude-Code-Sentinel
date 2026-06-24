@@ -58,6 +58,10 @@ final class AppModel: ObservableObject {
         autoApprovalStats.totalCount
     }
 
+    var approvalFocus: ApprovalFocus? {
+        ApprovalFocus.resolve(store: store)
+    }
+
     func refreshAutoApprovalStats() {
         autoApprovalStats = (try? AutoApprovalStatsPersistence.load(from: autoApprovalStatsURL)) ?? autoApprovalStats
     }

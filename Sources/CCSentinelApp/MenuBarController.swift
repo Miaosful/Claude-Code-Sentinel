@@ -5,6 +5,7 @@ import CCSentinelCore
 final class MenuBarController {
     let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     var onToggle: (() -> Void)?
+    private var currentStatus: AggregateStatus = .idle
 
     var button: NSStatusBarButton? {
         statusItem.button
@@ -19,9 +20,17 @@ final class MenuBarController {
     }
 
     func update(status: AggregateStatus) {
+        currentStatus = status
         guard let button else { return }
         button.contentTintColor = status.menuBarColor
         button.image = NSImage(systemSymbolName: status.symbolName, accessibilityDescription: status.accessibilityDescription)
+    }
+
+    func pulseWaitingApproval(_ isHighlighted: Bool) {
+        guard currentStatus == .waitingApproval, let button else {
+            return
+        }
+        button.contentTintColor = isHighlighted ? .systemRed : .systemOrange
     }
 
     @objc private func toggle() {
