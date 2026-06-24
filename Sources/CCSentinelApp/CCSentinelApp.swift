@@ -2,9 +2,11 @@ import SwiftUI
 
 @main
 struct CCSentinelApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     var body: some Scene {
         Settings {
-            Text("CC Sentinel")
+            SettingsView()
         }
     }
 }
