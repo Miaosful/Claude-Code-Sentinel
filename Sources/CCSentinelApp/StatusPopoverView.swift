@@ -12,6 +12,7 @@ struct StatusPopoverView: View {
             sessions
             Divider()
             controls
+            integrationMessage
             autoApprovalStats
         }
         .padding(14)
@@ -56,7 +57,7 @@ struct StatusPopoverView: View {
                 .foregroundStyle(.secondary)
 
             if model.store.sessions.isEmpty {
-                Text("No active Claude Code sessions")
+                Text(localized(.noActiveSessions))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -74,7 +75,7 @@ struct StatusPopoverView: View {
     private var controls: some View {
         Grid(horizontalSpacing: 8, verticalSpacing: 8) {
             GridRow {
-                Button(model.monitoringPaused ? "Resume monitoring" : localized(.pauseMonitoring)) {
+                Button(model.monitoringPaused ? localized(.resumeMonitoring) : localized(.pauseMonitoring)) {
                     model.pauseOrResumeMonitoring()
                 }
                 Button(localized(.clearStale)) {
@@ -82,11 +83,28 @@ struct StatusPopoverView: View {
                 }
             }
             GridRow {
-                Button(localized(.installHooks)) {}
-                Button(localized(.uninstallHooks)) {}
+                Button(localized(.installHooks)) {
+                    model.installHooks()
+                }
+                Button(localized(.uninstallHooks)) {
+                    model.uninstallHooks()
+                }
             }
         }
         .buttonStyle(.bordered)
+    }
+
+    @ViewBuilder
+    private var integrationMessage: some View {
+        if let key = model.integrationMessageKey {
+            Text(localized(key))
+                .font(.caption)
+                .foregroundStyle(key == .hooksFailed ? .red : .secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(8)
+                .background(.quaternary.opacity(0.25))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
     }
 
     private var autoApprovalStats: some View {
@@ -157,13 +175,13 @@ struct StatusPopoverView: View {
     private var statusDetail: String {
         switch model.aggregateStatus {
         case .idle:
-            return "No active Claude Code sessions are reporting."
+            return localized(.detailIdle)
         case .running:
-            return "Claude Code sessions are active."
+            return localized(.detailRunning)
         case .waitingApproval:
-            return "A session is blocked on an approval request."
+            return localized(.detailWaitingApproval)
         case .degraded:
-            return model.monitoringPaused ? "Monitoring is paused." : "Event state may be incomplete."
+            return model.monitoringPaused ? localized(.detailPaused) : localized(.detailDegraded)
         }
     }
 

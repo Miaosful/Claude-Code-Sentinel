@@ -23,6 +23,7 @@ Date: 2026-06-24
 - [x] Auto approval is off by default through `ApprovalPolicy.default`.
 - [x] Today and total auto-approval counters match audit events.
 - [x] Session store persists to and loads from JSON.
+- [x] Menu popover install/uninstall buttons call the hook settings installer.
 
 ## Manual Smoke Checks
 
@@ -32,5 +33,5 @@ Date: 2026-06-24
 
 ## Remaining MVP Gaps
 
-- UI-driven install/uninstall actions.
+- Surfacing exact installer backup paths in the UI.
 - Rich visual polish and final menu bar animation states.
