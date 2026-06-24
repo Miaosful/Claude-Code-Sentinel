@@ -166,6 +166,83 @@ func testHookForwarderWritesFallbackWhenReceiverIsUnavailable() async throws {
 try await testHookForwarderWritesFallbackWhenReceiverIsUnavailable()
 print("PASS: HookForwarderTests")
 
+func testEventReceiverAppliesHookEventsEndToEnd() async throws {
+    let port = UInt16.random(in: 49152...65000)
+    let endpoint = URL(string: "http://127.0.0.1:\(port)/events")!
+    let fallbackURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("cc-sentinel-e2e-\(UUID().uuidString)")
+        .appendingPathExtension("jsonl")
+    let storeBox = LockedSessionStore()
+
+    let receiver = try EventReceiver(port: port) { event in
+        storeBox.apply(event)
+    }
+    receiver.start()
+    defer {
+        receiver.stop()
+        try? FileManager.default.removeItem(at: fallbackURL)
+    }
+
+    try await Task.sleep(nanoseconds: 150_000_000)
+
+    let sessionStart = #"{"hook_event_name":"SessionStart","session_id":"e2e","cwd":"/repo"}"#.data(using: .utf8)!
+    try await HookForwarder.forward(data: sessionStart, endpoint: endpoint, fallbackURL: fallbackURL)
+    try await waitUntil("session start reaches receiver") {
+        storeBox.snapshot().sessions.first?.status == .running
+    }
+
+    let permissionRequest = #"{"hook_event_name":"PermissionRequest","session_id":"e2e","cwd":"/repo","tool_name":"Bash","tool_input":{"command":"pnpm test"}}"#.data(using: .utf8)!
+    try await HookForwarder.forward(data: permissionRequest, endpoint: endpoint, fallbackURL: fallbackURL)
+    try await waitUntil("permission request reaches receiver") {
+        storeBox.snapshot().aggregateStatus == .waitingApproval
+    }
+
+    let postToolUse = #"{"hook_event_name":"PostToolUse","session_id":"e2e","cwd":"/repo","tool_name":"Bash"}"#.data(using: .utf8)!
+    try await HookForwarder.forward(data: postToolUse, endpoint: endpoint, fallbackURL: fallbackURL)
+    try await waitUntil("post tool use clears approval") {
+        let store = storeBox.snapshot()
+        return store.sessions.first?.status == .running && store.sessions.first?.approvalRequest == nil
+    }
+}
+
+final class LockedSessionStore: @unchecked Sendable {
+    private let lock = NSLock()
+    private var store = SessionStore()
+
+    func apply(_ event: NormalizedEvent) {
+        lock.lock()
+        store.apply(event)
+        lock.unlock()
+    }
+
+    func snapshot() -> SessionStore {
+        lock.lock()
+        let snapshot = store
+        lock.unlock()
+        return snapshot
+    }
+}
+
+func waitUntil(
+    _ description: String,
+    timeoutNanoseconds: UInt64 = 2_000_000_000,
+    pollNanoseconds: UInt64 = 50_000_000,
+    condition: () -> Bool
+) async throws {
+    let started = DispatchTime.now().uptimeNanoseconds
+    while DispatchTime.now().uptimeNanoseconds - started < timeoutNanoseconds {
+        if condition() {
+            return
+        }
+        try await Task.sleep(nanoseconds: pollNanoseconds)
+    }
+    print("FAIL: Timed out waiting for \(description).")
+    Foundation.exit(1)
+}
+
+try await testEventReceiverAppliesHookEventsEndToEnd()
+print("PASS: EventReceiverE2ETests")
+
 func testWrapperSeparatesRealClaudeBinaryFromArguments() {
     let parsed = WrapperArguments.parse(["/usr/local/bin/claude", "--print", "hello"])
 

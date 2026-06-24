@@ -1,15 +1,14 @@
 import Foundation
 import Network
-import CCSentinelCore
 
-final class EventReceiver {
-    typealias EventHandler = @Sendable (NormalizedEvent) -> Void
+public final class EventReceiver {
+    public typealias EventHandler = @Sendable (NormalizedEvent) -> Void
 
     private let listener: NWListener
     private let handler: EventHandler
     private let maxBodySize = 512 * 1024
 
-    init(port: UInt16 = 47281, handler: @escaping EventHandler) throws {
+    public init(port: UInt16 = 47281, handler: @escaping EventHandler) throws {
         guard let endpointPort = NWEndpoint.Port(rawValue: port) else {
             throw ReceiverError.invalidPort
         }
@@ -17,14 +16,14 @@ final class EventReceiver {
         self.handler = handler
     }
 
-    func start(queue: DispatchQueue = DispatchQueue(label: "app.ccsentinel.event-receiver")) {
+    public func start(queue: DispatchQueue = DispatchQueue(label: "app.ccsentinel.event-receiver")) {
         listener.newConnectionHandler = { [handler, maxBodySize] connection in
             Self.handle(connection: connection, maxBodySize: maxBodySize, handler: handler)
         }
         listener.start(queue: queue)
     }
 
-    func stop() {
+    public func stop() {
         listener.cancel()
     }
 
@@ -87,7 +86,7 @@ final class EventReceiver {
         })
     }
 
-    enum ReceiverError: Error {
+    public enum ReceiverError: Error {
         case invalidPort
     }
 }
