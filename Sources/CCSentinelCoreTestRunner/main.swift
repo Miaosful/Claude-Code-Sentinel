@@ -141,3 +141,32 @@ func testWrapperProcessStartUsesVscodeSource() throws {
 testWrapperSeparatesRealClaudeBinaryFromArguments()
 try testWrapperProcessStartUsesVscodeSource()
 print("PASS: WrapperTests")
+
+func testInstallerPreservesUnrelatedSettingsAndAddsManagedHook() throws {
+    let existing = #"{"theme":"dark","hooks":{"Stop":[{"command":"echo keep"}]}}"#
+    let result = try HookSettingsInstaller.previewInstall(
+        existingSettingsJSON: existing,
+        hookBinaryPath: "/opt/cc/cc-sentinel-hook"
+    )
+
+    assertTrue(result.previewJSON.contains(#""theme""#), "installer preserves unrelated settings")
+    assertTrue(result.previewJSON.contains("echo keep"), "installer preserves unmarked hooks")
+    assertTrue(result.previewJSON.contains("cc-sentinel-hook"), "installer adds sentinel hook")
+    assertTrue(result.previewJSON.contains("cc-sentinel-managed"), "installer marks managed hooks")
+}
+
+func testUninstallRemovesOnlyManagedHook() throws {
+    let existing = """
+    {"hooks":{"Stop":[{"command":"echo keep"},{"command":"/opt/cc/cc-sentinel-hook","cc-sentinel-managed":true}]}}
+    """
+
+    let result = try HookSettingsInstaller.previewUninstall(existingSettingsJSON: existing)
+
+    assertTrue(result.previewJSON.contains("echo keep"), "uninstall keeps unmarked hook")
+    assertTrue(!result.previewJSON.contains("cc-sentinel-hook"), "uninstall removes managed hook")
+    assertTrue(!result.previewJSON.contains("cc-sentinel-managed"), "uninstall removes managed marker")
+}
+
+try testInstallerPreservesUnrelatedSettingsAndAddsManagedHook()
+try testUninstallRemovesOnlyManagedHook()
+print("PASS: HookSettingsInstallerTests")
