@@ -35,13 +35,32 @@ enum AppLocalizer {
     }
 
     private static func bundle(for languagePreference: AppLanguagePreference) -> Bundle {
-        guard
-            let resourceName = languagePreference.resourceName,
-            let path = Bundle.module.path(forResource: resourceName, ofType: "lproj"),
-            let bundle = Bundle(path: path)
-        else {
+        guard let resourceName = languagePreference.resourceName else {
             return .module
         }
-        return bundle
+
+        for candidate in resourceCandidates(for: resourceName) {
+            if
+                let path = Bundle.module.path(forResource: candidate, ofType: "lproj"),
+                let bundle = Bundle(path: path)
+            {
+                return bundle
+            }
+        }
+
+        return .module
+    }
+
+    private static func resourceCandidates(for resourceName: String) -> [String] {
+        var candidates = [resourceName]
+
+        if let matchingLocalization = Bundle.module.localizations.first(where: {
+            $0.caseInsensitiveCompare(resourceName) == .orderedSame
+        }) {
+            candidates.append(matchingLocalization)
+        }
+
+        candidates.append(resourceName.lowercased())
+        return Array(NSOrderedSet(array: candidates)) as? [String] ?? candidates
     }
 }
