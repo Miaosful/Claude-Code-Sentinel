@@ -98,3 +98,24 @@ func testPostToolUseClearsWaitingApproval() {
 testPermissionRequestMarksSessionWaitingApproval()
 testPostToolUseClearsWaitingApproval()
 print("PASS: SessionStoreTests")
+
+func testHookForwarderWritesFallbackWhenReceiverIsUnavailable() async throws {
+    let temp = FileManager.default.temporaryDirectory
+        .appendingPathComponent("cc-sentinel-\(UUID().uuidString)")
+        .appendingPathExtension("jsonl")
+    let data = #"{"hook_event_name":"SessionStart","session_id":"s1","cwd":"/repo"}"#.data(using: .utf8)!
+
+    try await HookForwarder.forward(
+        data: data,
+        endpoint: URL(string: "http://127.0.0.1:1/events")!,
+        fallbackURL: temp,
+        timeout: 0.1
+    )
+
+    let saved = try String(contentsOf: temp, encoding: .utf8)
+    assertTrue(saved.contains(#""session_id":"s1""#), "fallback file contains original event")
+    try? FileManager.default.removeItem(at: temp)
+}
+
+try await testHookForwarderWritesFallbackWhenReceiverIsUnavailable()
+print("PASS: HookForwarderTests")
