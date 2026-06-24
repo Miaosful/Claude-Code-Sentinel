@@ -95,8 +95,26 @@ func testPostToolUseClearsWaitingApproval() {
     assertEqual(store.sessions.first?.approvalRequest, nil, "post tool use clears approval request")
 }
 
+func testStaleTimeoutMarksOldRunningSessionsStale() {
+    var store = SessionStore(sessions: [
+        ClaudeSession(
+            id: "s1",
+            source: .cli,
+            cwd: "/repo",
+            status: .running,
+            lastEventAt: Date(timeIntervalSince1970: 10)
+        )
+    ])
+
+    store.markStale(now: Date(timeIntervalSince1970: 100), timeout: 30)
+
+    assertEqual(store.sessions.first?.status, .some(.stale), "old running session becomes stale")
+    assertEqual(store.aggregateStatus, .degraded, "stale session degrades aggregate status")
+}
+
 testPermissionRequestMarksSessionWaitingApproval()
 testPostToolUseClearsWaitingApproval()
+testStaleTimeoutMarksOldRunningSessionsStale()
 print("PASS: SessionStoreTests")
 
 func testHookForwarderWritesFallbackWhenReceiverIsUnavailable() async throws {

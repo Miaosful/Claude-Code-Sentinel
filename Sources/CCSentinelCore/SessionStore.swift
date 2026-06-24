@@ -54,4 +54,18 @@ public struct SessionStore: Codable, Equatable, Sendable {
             sessions.append(session)
         }
     }
+
+    public mutating func markStale(now: Date = Date(), timeout: TimeInterval) {
+        sessions = sessions.map { session in
+            guard session.status == .running || session.status == .waitingApproval || session.status == .idle else {
+                return session
+            }
+            guard now.timeIntervalSince(session.lastEventAt) > timeout else {
+                return session
+            }
+            var staleSession = session
+            staleSession.status = .stale
+            return staleSession
+        }
+    }
 }
