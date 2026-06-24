@@ -5,6 +5,7 @@ import CCSentinelCore
 final class MenuBarController {
     let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     var onToggle: (() -> Void)?
+    var onShowContextMenu: (() -> Void)?
     private var currentStatus: AggregateStatus = .idle
 
     var button: NSStatusBarButton? {
@@ -17,6 +18,7 @@ final class MenuBarController {
         button.imagePosition = .imageOnly
         button.target = self
         button.action = #selector(toggle)
+        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
     }
 
     func update(status: AggregateStatus) {
@@ -34,7 +36,11 @@ final class MenuBarController {
     }
 
     @objc private func toggle() {
-        onToggle?()
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            onShowContextMenu?()
+        } else {
+            onToggle?()
+        }
     }
 }
 

@@ -21,6 +21,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.onToggle = { [weak self] in
             self?.togglePopover()
         }
+        controller.onShowContextMenu = { [weak self] in
+            self?.showContextMenu()
+        }
         controller.configure()
         menuBarController = controller
 
@@ -140,5 +143,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func activatePopoverWindow(_ popover: NSPopover) {
         NSApp.activate(ignoringOtherApps: true)
         popover.contentViewController?.view.window?.makeKeyAndOrderFront(nil)
+    }
+
+    private func showContextMenu() {
+        popover?.performClose(nil)
+        guard let button = menuBarController?.button else { return }
+
+        let menu = NSMenu()
+        let languageItem = NSMenuItem(title: model.localized(.languageMenu), action: nil, keyEquivalent: "")
+        let languageMenu = NSMenu()
+
+        for preference in AppLanguagePreference.allCases {
+            let item = NSMenuItem(
+                title: model.localized(preference.titleKey),
+                action: #selector(selectLanguage(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = preference.rawValue
+            item.state = model.languagePreference == preference ? .on : .off
+            languageMenu.addItem(item)
+        }
+
+        languageItem.submenu = languageMenu
+        menu.addItem(languageItem)
+        menu.addItem(.separator())
+
+        let quitItem = NSMenuItem(title: model.localized(.quit), action: #selector(quitApp), keyEquivalent: "q")
+        quitItem.target = self
+        menu.addItem(quitItem)
+
+        menu.popUp(positioning: nil, at: NSPoint(x: button.bounds.midX, y: button.bounds.minY - 4), in: button)
+    }
+
+    @objc private func selectLanguage(_ sender: NSMenuItem) {
+        guard
+            let rawValue = sender.representedObject as? String,
+            let preference = AppLanguagePreference(rawValue: rawValue)
+        else { return }
+        model.languagePreference = preference
+    }
+
+    @objc private func quitApp() {
+        NSApp.terminate(nil)
     }
 }

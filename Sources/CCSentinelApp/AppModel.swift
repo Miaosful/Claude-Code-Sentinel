@@ -15,26 +15,39 @@ final class AppModel: ObservableObject {
     }
     @Published var integrationMessage: IntegrationMessage?
     @Published private(set) var hooksInstalled = false
+    @Published var languagePreference: AppLanguagePreference {
+        didSet {
+            guard languagePreference != oldValue else { return }
+            userDefaults.set(languagePreference.rawValue, forKey: Self.languagePreferenceDefaultsKey)
+        }
+    }
 
     private let storeURL: URL
     private let autoApprovalSettingsURL: URL
     private let autoApprovalStatsURL: URL
     private let settingsURL: URL
     private let hookBinaryURL: URL
+    private let userDefaults: UserDefaults
     private var autoApprovalSettings: AutoApprovalSettings
+    private static let languagePreferenceDefaultsKey = "ccSentinel.languagePreference"
 
     init(
         storeURL: URL = AppModel.defaultStoreURL(),
         autoApprovalSettingsURL: URL = AppModel.defaultAutoApprovalSettingsURL(),
         autoApprovalStatsURL: URL = AppModel.defaultAutoApprovalStatsURL(),
         settingsURL: URL = AppModel.defaultClaudeSettingsURL(),
-        hookBinaryURL: URL = AppModel.defaultHookBinaryURL()
+        hookBinaryURL: URL = AppModel.defaultHookBinaryURL(),
+        userDefaults: UserDefaults = .standard
     ) {
         self.storeURL = storeURL
         self.autoApprovalSettingsURL = autoApprovalSettingsURL
         self.autoApprovalStatsURL = autoApprovalStatsURL
         self.settingsURL = settingsURL
         self.hookBinaryURL = hookBinaryURL
+        self.userDefaults = userDefaults
+        self.languagePreference = AppLanguagePreference(
+            rawValue: userDefaults.string(forKey: Self.languagePreferenceDefaultsKey) ?? ""
+        ) ?? .system
         self.store = (try? SessionStorePersistence.load(from: storeURL)) ?? SessionStore()
         self.autoApprovalSettings = (try? AutoApprovalSettingsPersistence.load(from: autoApprovalSettingsURL)) ??
             AutoApprovalSettings(
@@ -74,6 +87,10 @@ final class AppModel: ObservableObject {
 
     func refreshHookInstallationStatus() {
         hooksInstalled = (try? HookSettingsInstaller.hasManagedHooks(settingsURL: settingsURL)) ?? false
+    }
+
+    func localized(_ key: L10nKey) -> String {
+        AppLocalizer.localized(key, languagePreference: languagePreference)
     }
 
     func apply(_ event: NormalizedEvent) {

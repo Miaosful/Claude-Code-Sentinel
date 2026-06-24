@@ -547,7 +547,7 @@ struct StatusPopoverView: View {
     }
 
     private func localized(_ key: L10nKey) -> String {
-        NSLocalizedString(key.rawValue, bundle: .module, comment: "")
+        model.localized(key)
     }
 }
 
