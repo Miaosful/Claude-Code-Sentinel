@@ -6,6 +6,7 @@
 "status.setup_needed" = "需要接入";
 "detail.idle" = "当前没有 Claude Code 会话上报。";
 "detail.running" = "Claude Code 会话正在运行。";
+"detail.process_fallback" = "本机检测到 Claude Code 正在运行，但 hooks 还没有上报这个会话。";
 "detail.waiting_approval" = "有会话正等待权限审批。";
 "detail.degraded" = "事件状态可能不完整。";
 "detail.paused" = "监控已暂停。";
@@ -14,6 +15,7 @@
 "header.paused" = "已暂停 · 本地事件将被忽略";
 "header.no_active_sessions" = "没有活跃会话";
 "header.sessions_all_clear" = "个会话 · 状态正常";
+"header.process_detected" = "检测到本机进程";
 "header.needs_approval" = "个需要审批";
 "header.hooks_silent" = "hooks 未上报或会话已过期";
 "header.hooks_missing" = "尚未安装 hooks";
@@ -21,6 +23,7 @@
 "sessions.empty" = "没有活跃的 Claude Code 会话";
 "sessions.empty_short" = "没有活跃会话";
 "sessions.empty_detail" = "Claude Code hooks 上报 SessionStart 后会显示在这里。";
+"sessions.process_detected_detail" = "这是从本机进程列表检测到的状态；审批状态仍依赖 hooks 事件。";
 "sessions.hooks_missing_short" = "尚未安装 hooks";
 "sessions.hooks_missing_detail" = "Claude Code 可能已经在运行，但 CC Sentinel 需要先安装 hooks 才能收到会话上报。";
 "sessions.count_none" = "0 个活跃";
@@ -59,6 +62,9 @@
 "menu.language.zh_hans" = "简体中文";
 "menu.language.en" = "English";
 "menu.quit" = "退出 CC Sentinel";
+"menu.icon_style" = "图标样式";
+"menu.icon_style.dot" = "圆点";
+"menu.icon_style.symbol" = "符号";
 "integration.hooks_installed" = "Hooks 已安装，并已创建备份。";
 "integration.hooks_uninstalled" = "Hooks 已移除，并已创建备份。";
 "integration.hooks_failed" = "Hook 设置更新失败。";

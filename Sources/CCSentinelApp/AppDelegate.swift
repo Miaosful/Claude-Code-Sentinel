@@ -29,14 +29,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let popover = NSPopover()
         popover.behavior = .transient
-        popover.contentSize = NSSize(width: 382, height: 560)
+        popover.contentSize = NSSize(width: StatusPopoverView.preferredWidth, height: StatusPopoverView.preferredHeight)
         popover.contentViewController = NSHostingController(rootView: StatusPopoverView(model: model))
         self.popover = popover
 
         model.$store
-            .sink { [weak self] store in
-                self?.menuBarController?.update(status: store.aggregateStatus)
-                self?.syncWaitingPulse(status: store.aggregateStatus)
+            .sink { [weak self] _ in
+                let status = self?.model.aggregateStatus ?? .idle
+                self?.menuBarController?.update(status: status)
+                self?.syncWaitingPulse(status: status)
             }
             .store(in: &cancellables)
 
@@ -48,8 +49,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             .store(in: &cancellables)
 
+        model.$iconStylePreference
+            .sink { [weak self] style in
+                self?.menuBarController?.applyIconStyle(style)
+            }
+            .store(in: &cancellables)
+
         startReceiver()
         startStatsRefresh()
+        controller.applyIconStyle(model.iconStylePreference)
         controller.update(status: model.aggregateStatus)
         syncWaitingPulse(status: model.aggregateStatus)
         openPopoverOnLaunchIfRequested()
@@ -78,7 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startStatsRefresh() {
         statsTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.model.refreshAutoApprovalStats()
+                self?.model.refreshRuntimeStatus()
             }
         }
     }
@@ -136,6 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         else { return }
 
         model.refreshHookInstallationStatus()
+        model.refreshRuntimeStatus()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         activatePopoverWindow(popover)
     }
@@ -167,6 +176,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         languageItem.submenu = languageMenu
         menu.addItem(languageItem)
+
+        let iconStyleItem = NSMenuItem(title: model.localized(.iconStyleMenu), action: nil, keyEquivalent: "")
+        let iconStyleMenu = NSMenu()
+
+        for style in MenuBarIconStyle.allCases {
+            let item = NSMenuItem(
+                title: model.localized(style.titleKey),
+                action: #selector(selectIconStyle(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = style.rawValue
+            item.state = model.iconStylePreference == style ? .on : .off
+            iconStyleMenu.addItem(item)
+        }
+
+        iconStyleItem.submenu = iconStyleMenu
+        menu.addItem(iconStyleItem)
+
         menu.addItem(.separator())
 
         let quitItem = NSMenuItem(title: model.localized(.quit), action: #selector(quitApp), keyEquivalent: "q")
@@ -182,6 +210,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let preference = AppLanguagePreference(rawValue: rawValue)
         else { return }
         model.languagePreference = preference
+    }
+
+    @objc private func selectIconStyle(_ sender: NSMenuItem) {
+        guard
+            let rawValue = sender.representedObject as? String,
+            let style = MenuBarIconStyle(rawValue: rawValue)
+        else { return }
+        model.iconStylePreference = style
     }
 
     @objc private func quitApp() {

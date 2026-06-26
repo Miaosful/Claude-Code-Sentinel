@@ -6,6 +6,7 @@
 "status.setup_needed" = "Setup needed";
 "detail.idle" = "No active Claude Code sessions are reporting.";
 "detail.running" = "Claude Code sessions are active.";
+"detail.process_fallback" = "Claude Code is running locally. Hooks have not reported this session yet.";
 "detail.waiting_approval" = "A session is blocked on an approval request.";
 "detail.degraded" = "Event state may be incomplete.";
 "detail.paused" = "Monitoring is paused.";
@@ -14,6 +15,7 @@
 "header.paused" = "Paused · local events ignored";
 "header.no_active_sessions" = "No active sessions";
 "header.sessions_all_clear" = "sessions · all clear";
+"header.process_detected" = "local process detected";
 "header.needs_approval" = "needs approval";
 "header.hooks_silent" = "hooks silent or session stale";
 "header.hooks_missing" = "Hooks not installed";
@@ -21,6 +23,7 @@
 "sessions.empty" = "No active Claude Code sessions";
 "sessions.empty_short" = "No active sessions";
 "sessions.empty_detail" = "Claude Code sessions will appear here after hooks report SessionStart.";
+"sessions.process_detected_detail" = "Detected from the local process list; approval state still depends on hook events.";
 "sessions.hooks_missing_short" = "Hooks not installed";
 "sessions.hooks_missing_detail" = "Claude Code may already be running, but CC Sentinel needs hooks installed before sessions can report.";
 "sessions.count_none" = "0 active";
@@ -59,6 +62,9 @@
 "menu.language.zh_hans" = "Simplified Chinese";
 "menu.language.en" = "English";
 "menu.quit" = "Quit CC Sentinel";
+"menu.icon_style" = "Icon Style";
+"menu.icon_style.dot" = "Dots";
+"menu.icon_style.symbol" = "Symbols";
 "integration.hooks_installed" = "Hooks installed. Backup created.";
 "integration.hooks_uninstalled" = "Hooks removed. Backup created.";
 "integration.hooks_failed" = "Hook settings update failed.";

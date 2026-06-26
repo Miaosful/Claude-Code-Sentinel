@@ -1,12 +1,25 @@
 import AppKit
 import CCSentinelCore
 
+enum MenuBarIconStyle: String, CaseIterable, Sendable {
+    case dot
+    case symbol
+
+    var titleKey: L10nKey {
+        switch self {
+        case .dot: return .iconStyleDot
+        case .symbol: return .iconStyleSymbol
+        }
+    }
+}
+
 @MainActor
 final class MenuBarController {
     let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     var onToggle: (() -> Void)?
     var onShowContextMenu: (() -> Void)?
     private var currentStatus: AggregateStatus = .idle
+    private var iconStyle: MenuBarIconStyle = .dot
 
     var button: NSStatusBarButton? {
         statusItem.button
@@ -26,6 +39,11 @@ final class MenuBarController {
         guard let button else { return }
         button.contentTintColor = status.menuBarColor
         button.image = NSImage(systemSymbolName: status.symbolName, accessibilityDescription: status.accessibilityDescription)
+    }
+
+    func applyIconStyle(_ style: MenuBarIconStyle) {
+        iconStyle = style
+        update(status: currentStatus)
     }
 
     func pulseWaitingApproval(_ isHighlighted: Bool) {

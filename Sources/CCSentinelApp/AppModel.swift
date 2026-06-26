@@ -4,6 +4,7 @@ import CCSentinelCore
 @MainActor
 final class AppModel: ObservableObject {
     @Published private(set) var store = SessionStore()
+    private var hookStore = SessionStore()
     @Published private var autoApprovalStats = AutoApprovalStats()
     @Published var monitoringPaused = false
     @Published var autoApprovalEnabled = false {
@@ -21,6 +22,12 @@ final class AppModel: ObservableObject {
             userDefaults.set(languagePreference.rawValue, forKey: Self.languagePreferenceDefaultsKey)
         }
     }
+    @Published var iconStylePreference: MenuBarIconStyle {
+        didSet {
+            guard iconStylePreference != oldValue else { return }
+            userDefaults.set(iconStylePreference.rawValue, forKey: Self.iconStyleDefaultsKey)
+        }
+    }
 
     private let storeURL: URL
     private let autoApprovalSettingsURL: URL
@@ -30,6 +37,7 @@ final class AppModel: ObservableObject {
     private let userDefaults: UserDefaults
     private var autoApprovalSettings: AutoApprovalSettings
     private static let languagePreferenceDefaultsKey = "ccSentinel.languagePreference"
+    private static let iconStyleDefaultsKey = "ccSentinel.iconStylePreference"
 
     init(
         storeURL: URL = AppModel.defaultStoreURL(),
@@ -48,7 +56,11 @@ final class AppModel: ObservableObject {
         self.languagePreference = AppLanguagePreference(
             rawValue: userDefaults.string(forKey: Self.languagePreferenceDefaultsKey) ?? ""
         ) ?? .system
-        self.store = (try? SessionStorePersistence.load(from: storeURL)) ?? SessionStore()
+        self.iconStylePreference = MenuBarIconStyle(
+            rawValue: userDefaults.string(forKey: Self.iconStyleDefaultsKey) ?? ""
+        ) ?? .dot
+        self.hookStore = (try? SessionStorePersistence.load(from: storeURL)) ?? SessionStore()
+        self.store = hookStore
         self.autoApprovalSettings = (try? AutoApprovalSettingsPersistence.load(from: autoApprovalSettingsURL)) ??
             AutoApprovalSettings(
                 enabled: false,
@@ -58,6 +70,7 @@ final class AppModel: ObservableObject {
         self.autoApprovalEnabled = autoApprovalSettings.enabled
         self.autoApprovalStats = (try? AutoApprovalStatsPersistence.load(from: autoApprovalStatsURL)) ?? AutoApprovalStats()
         refreshHookInstallationStatus()
+        refreshVisibleRuntimeState()
         persistAutoApprovalSettings()
     }
 
@@ -85,6 +98,11 @@ final class AppModel: ObservableObject {
         autoApprovalStats = (try? AutoApprovalStatsPersistence.load(from: autoApprovalStatsURL)) ?? autoApprovalStats
     }
 
+    func refreshRuntimeStatus() {
+        refreshAutoApprovalStats()
+        refreshVisibleRuntimeState()
+    }
+
     func refreshHookInstallationStatus() {
         hooksInstalled = (try? HookSettingsInstaller.hasManagedHooks(settingsURL: settingsURL)) ?? false
     }
@@ -97,8 +115,10 @@ final class AppModel: ObservableObject {
         guard !monitoringPaused else {
             return
         }
-        store.apply(event)
+        hookStore.apply(event)
+        store = hookStore
         persistStore()
+        refreshVisibleRuntimeState()
     }
 
     func pauseOrResumeMonitoring() {
@@ -106,11 +126,13 @@ final class AppModel: ObservableObject {
     }
 
     func clearStaleSessions() {
-        let active = store.sessions.filter { session in
+        let active = hookStore.sessions.filter { session in
             session.status != .stale && session.status != .ended
         }
-        store = SessionStore(sessions: active)
+        hookStore = SessionStore(sessions: active)
+        store = hookStore
         persistStore()
+        refreshVisibleRuntimeState()
     }
 
     func recordAutoApproval(toolName: String, summary: String, workspace: String) {
@@ -142,7 +164,40 @@ final class AppModel: ObservableObject {
     }
 
     private func persistStore() {
-        try? SessionStorePersistence.save(store, to: storeURL)
+        try? SessionStorePersistence.save(hookStore, to: storeURL)
+    }
+
+    private func refreshVisibleRuntimeState() {
+        guard !monitoringPaused else {
+            store = hookStore
+            return
+        }
+
+        let snapshot = (try? ClaudeProcessDetector.scanCurrentProcesses()) ?? ClaudeProcessSnapshot()
+        refreshStaleSessions(processSnapshot: snapshot)
+        refreshProcessFallback(snapshot)
+    }
+
+    private func refreshProcessFallback(_ snapshot: ClaudeProcessSnapshot) {
+        store = hookStore.includingProcessFallback(snapshot)
+    }
+
+    private func refreshStaleSessions(processSnapshot: ClaudeProcessSnapshot) {
+        guard !monitoringPaused else {
+            return
+        }
+
+        let previousStore = hookStore
+        hookStore.markStale(
+            timeout: SessionStore.defaultStaleTimeout,
+            activeClaudeProcessesDetected: !processSnapshot.processes.isEmpty
+        )
+        guard hookStore != previousStore else {
+            return
+        }
+
+        store = hookStore
+        persistStore()
     }
 
     private static func defaultStoreURL() -> URL {
