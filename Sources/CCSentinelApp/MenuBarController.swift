@@ -20,6 +20,7 @@ final class MenuBarController {
     var onShowContextMenu: (() -> Void)?
     private var currentStatus: AggregateStatus = .idle
     private var iconStyle: MenuBarIconStyle = .dot
+    private var glowLayer: CALayer?
 
     var button: NSStatusBarButton? {
         statusItem.button
@@ -97,6 +98,64 @@ final class MenuBarController {
         image.unlockFocus()
         image.isTemplate = false
         return image
+    }
+
+    func setWaitingGlow(active: Bool) {
+        guard let button else { return }
+        if active {
+            startWaitingGlow(in: button)
+        } else {
+            stopWaitingGlow()
+        }
+    }
+
+    private func startWaitingGlow(in button: NSStatusBarButton) {
+        guard glowLayer == nil, let host = button.layer else { return }
+        host.masksToBounds = false
+
+        let glow = CALayer()
+        glow.bounds = CGRect(x: 0, y: 0, width: 4, height: 4)
+        glow.position = CGPoint(x: button.bounds.midX, y: button.bounds.midY)
+        glow.cornerRadius = 2
+        glow.backgroundColor = NSColor.systemYellow.cgColor
+        glow.shadowColor = NSColor.systemYellow.cgColor
+        glow.shadowOpacity = 0.0
+        glow.shadowRadius = 3
+        host.addSublayer(glow)
+        glowLayer = glow
+
+        let swell = CABasicAnimation(keyPath: "shadowRadius")
+        swell.fromValue = 3
+        swell.toValue = 15
+        swell.duration = 1.9
+        swell.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        swell.repeatCount = .infinity
+
+        let fade = CABasicAnimation(keyPath: "shadowOpacity")
+        fade.fromValue = 0.85
+        fade.toValue = 0.0
+        fade.duration = 1.9
+        fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        fade.repeatCount = .infinity
+
+        glow.add(swell, forKey: "glowSwell")
+        glow.add(fade, forKey: "glowFade")
+
+        let pulse = CABasicAnimation(keyPath: "opacity")
+        pulse.fromValue = 1.0
+        pulse.toValue = 0.78
+        pulse.duration = 0.95
+        pulse.autoreverses = true
+        pulse.repeatCount = .infinity
+        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        host.add(pulse, forKey: "coreBreathe")
+    }
+
+    private func stopWaitingGlow() {
+        glowLayer?.removeFromSuperlayer()
+        glowLayer = nil
+        button?.layer?.removeAnimation(forKey: "coreBreathe")
+        button?.layer?.opacity = 1.0
     }
 
     @objc private func toggle() {

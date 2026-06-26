@@ -34,14 +34,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.$store
             .sink { [weak self] _ in
                 let status = self?.model.aggregateStatus ?? .idle
-                self?.menuBarController?.update(status: status)
+                self?.syncStatus(status)
             }
             .store(in: &cancellables)
 
         model.$monitoringPaused
             .sink { [weak self] _ in
                 let status = self?.model.aggregateStatus ?? .idle
-                self?.menuBarController?.update(status: status)
+                self?.syncStatus(status)
             }
             .store(in: &cancellables)
 
@@ -54,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startReceiver()
         startStatsRefresh()
         controller.applyIconStyle(model.iconStylePreference)
-        controller.update(status: model.aggregateStatus)
+        syncStatus(model.aggregateStatus)
         openPopoverOnLaunchIfRequested()
     }
 
@@ -83,6 +83,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.model.refreshRuntimeStatus()
             }
         }
+    }
+
+    private func syncStatus(_ status: AggregateStatus) {
+        menuBarController?.update(status: status)
+        menuBarController?.setWaitingGlow(active: status == .waitingApproval)
     }
 
     private func openPopoverOnLaunchIfRequested() {
