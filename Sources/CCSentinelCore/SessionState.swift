@@ -32,6 +32,7 @@ public struct ClaudeSession: Codable, Equatable, Identifiable, Sendable {
     public var source: SessionSource
     public var cwd: String
     public var status: SessionStatus
+    public var claudePID: Int32?
     public var permissionMode: String?
     public var lastToolName: String?
     public var lastToolSummary: String?
@@ -44,6 +45,7 @@ public struct ClaudeSession: Codable, Equatable, Identifiable, Sendable {
         source: SessionSource,
         cwd: String,
         status: SessionStatus,
+        claudePID: Int32? = nil,
         permissionMode: String? = nil,
         lastToolName: String? = nil,
         lastToolSummary: String? = nil,
@@ -55,6 +57,7 @@ public struct ClaudeSession: Codable, Equatable, Identifiable, Sendable {
         self.source = source
         self.cwd = cwd
         self.status = status
+        self.claudePID = claudePID
         self.permissionMode = permissionMode
         self.lastToolName = lastToolName
         self.lastToolSummary = lastToolSummary

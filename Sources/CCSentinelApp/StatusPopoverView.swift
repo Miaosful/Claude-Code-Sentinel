@@ -2,6 +2,9 @@ import SwiftUI
 import CCSentinelCore
 
 struct StatusPopoverView: View {
+    static let preferredWidth: CGFloat = 382
+    static let preferredHeight: CGFloat = 700
+
     @ObservedObject var model: AppModel
 
     var body: some View {
@@ -19,8 +22,8 @@ struct StatusPopoverView: View {
             .padding(.bottom, 8)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .frame(width: 382, alignment: .topLeading)
-        .frame(maxHeight: 560, alignment: .topLeading)
+        .frame(width: Self.preferredWidth, alignment: .topLeading)
+        .frame(maxHeight: Self.preferredHeight, alignment: .topLeading)
         .background(Color.ccPopoverBackground)
     }
 
@@ -175,9 +178,35 @@ struct StatusPopoverView: View {
     private var controlPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
             Divider()
+            hookStatusBanner
             autoApprovalToggle
             actionGrid
         }
+    }
+
+    private var hookStatusBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: model.hooksInstalled ? "checkmark.circle.fill" : "exclamationmark.circle")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(model.hooksInstalled ? Color.green : Color.secondary)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(localized(model.hooksInstalled ? .hookStatusInstalledTitle : .hookStatusMissingTitle))
+                    .font(.caption.weight(.bold))
+                Text(localized(model.hooksInstalled ? .hookStatusInstalledDetail : .hookStatusMissingDetail))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(model.hooksInstalled ? Color.green.opacity(0.08) : Color.ccMutedPanelBackground)
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(model.hooksInstalled ? Color.green.opacity(0.28) : Color.ccPanelBorder, lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     private var autoApprovalToggle: some View {
@@ -210,10 +239,10 @@ struct StatusPopoverView: View {
                 Button {
                     model.installHooks()
                 } label: {
-                    Label(localized(.installHooks), systemImage: "arrow.down.to.line.compact")
+                    Label(localized(model.hooksInstalled ? .updateHooks : .installHooks), systemImage: model.hooksInstalled ? "arrow.triangle.2.circlepath" : "arrow.down.to.line.compact")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(CCActionButtonStyle(kind: .primary))
+                .buttonStyle(CCActionButtonStyle(kind: model.hooksInstalled ? .secondary : .primary))
 
                 Button {
                     model.pauseOrResumeMonitoring()
@@ -312,11 +341,19 @@ struct StatusPopoverView: View {
                 Spacer()
                 sourcePill(session.source)
             }
-            Text(session.cwd)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
+            if !session.cwd.isEmpty {
+                Text(session.cwd)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            if session.isProcessFallback {
+                Text(localized(.processDetectedDetail))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let lastToolName = session.lastToolName {
                 toolLine(tool: lastToolName, summary: session.lastToolSummary ?? "")
             }
@@ -432,6 +469,9 @@ struct StatusPopoverView: View {
         case .idle:
             return localized(.detailIdle)
         case .running:
+            if model.hasProcessFallbackSession {
+                return localized(.detailProcessFallback)
+            }
             return localized(.detailRunning)
         case .waitingApproval:
             return localized(.detailWaitingApproval)
@@ -467,6 +507,9 @@ struct StatusPopoverView: View {
         case .idle:
             return localized(.headerNoActiveSessions)
         case .running:
+            if model.hasProcessFallbackSession {
+                return "\(model.store.sessions.count) \(localized(.headerProcessDetected))"
+            }
             return "\(model.store.sessions.count) \(localized(.headerSessionsAllClear))"
         case .waitingApproval:
             let waitingCount = model.store.sessions.filter { $0.status == .waitingApproval }.count
@@ -563,6 +606,18 @@ private extension AggregateStatus {
         case .degraded:
             return "xmark.octagon.fill"
         }
+    }
+}
+
+private extension AppModel {
+    var hasProcessFallbackSession: Bool {
+        store.sessions.contains { $0.isProcessFallback }
+    }
+}
+
+private extension ClaudeSession {
+    var isProcessFallback: Bool {
+        id.hasPrefix("process-")
     }
 }
 

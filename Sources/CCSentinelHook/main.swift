@@ -11,10 +11,11 @@ guard !data.isEmpty else {
 let environment = ProcessInfo.processInfo.environment
 let fallbackURL = CCSentinelPaths.fallbackURL(environment: environment)
 let endpoint = URL(string: environment["CC_SENTINEL_ENDPOINT"] ?? "http://127.0.0.1:47281/events")!
+let forwardedData = enrichedDataWithClaudePID(data)
 
 do {
-    try await HookForwarder.forward(data: data, endpoint: endpoint, fallbackURL: fallbackURL)
-    if let output = autoApprovalOutput(for: data, environment: environment) {
+    try await HookForwarder.forward(data: forwardedData, endpoint: endpoint, fallbackURL: fallbackURL)
+    if let output = autoApprovalOutput(for: forwardedData, environment: environment) {
         print(output)
     }
     Foundation.exit(0)
@@ -41,5 +42,21 @@ private func autoApprovalOutput(for data: Data, environment: [String: String]) -
     } catch {
         FileHandle.standardError.write(Data("cc-sentinel-hook: auto approval skipped: \(error)\n".utf8))
         return nil
+    }
+}
+
+private func enrichedDataWithClaudePID(_ data: Data) -> Data {
+    do {
+        let entries = try ProcessListEntry.current()
+        guard let pid = ClaudeProcessDetector.nearestClaudeAncestorPID(
+            for: ProcessInfo.processInfo.processIdentifier,
+            entries: entries
+        ) else {
+            return data
+        }
+        return try HookPayloadEnricher.addClaudePID(pid, to: data)
+    } catch {
+        FileHandle.standardError.write(Data("cc-sentinel-hook: pid enrichment skipped: \(error)\n".utf8))
+        return data
     }
 }

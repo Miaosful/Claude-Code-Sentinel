@@ -52,7 +52,12 @@
 "auto_approval.total_trend" = "跨会话累计";
 "auto_approval.no_last_action" = "暂无自动同意记录";
 "auto_approval.last_action" = "最近一次自动同意已记录";
+"hook_status.installed.title" = "Hooks 已安装";
+"hook_status.installed.detail" = "正在接收 Claude Code 事件。";
+"hook_status.missing.title" = "Hooks 未安装";
+"hook_status.missing.detail" = "安装后才能可靠显示会话和审批状态。";
 "actions.install_hooks" = "安装 hooks";
+"actions.update_hooks" = "更新 hooks";
 "actions.uninstall_hooks" = "卸载 hooks";
 "actions.pause_monitoring" = "暂停监控";
 "actions.resume_monitoring" = "恢复监控";

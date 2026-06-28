@@ -52,7 +52,12 @@
 "auto_approval.total_trend" = "Across sessions";
 "auto_approval.no_last_action" = "No auto approvals recorded yet";
 "auto_approval.last_action" = "Last auto approval recorded";
+"hook_status.installed.title" = "Hooks installed";
+"hook_status.installed.detail" = "Receiving Claude Code events.";
+"hook_status.missing.title" = "Hooks not installed";
+"hook_status.missing.detail" = "Install hooks for reliable session and approval state.";
 "actions.install_hooks" = "Install hooks";
+"actions.update_hooks" = "Update hooks";
 "actions.uninstall_hooks" = "Uninstall hooks";
 "actions.pause_monitoring" = "Pause monitoring";
 "actions.resume_monitoring" = "Resume monitoring";

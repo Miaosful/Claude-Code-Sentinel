@@ -18,11 +18,15 @@ public enum HookSettingsInstaller {
     private static let managedCommandName = "cc-sentinel-hook"
     private static let hookEvents = [
         "SessionStart",
+        "PreToolUse",
         "PermissionRequest",
+        "PermissionDenied",
         "PostToolUse",
         "PostToolUseFailure",
         "Stop",
+        "StopFailure",
         "SessionEnd",
+        "ConfigChange",
         "Notification"
     ]
 
@@ -39,7 +43,7 @@ public enum HookSettingsInstaller {
                 "hooks": [
                     [
                         "type": "command",
-                        "command": hookBinaryPath
+                        "command": "\"\(hookBinaryPath)\""
                     ]
                 ]
             ])
@@ -186,7 +190,8 @@ public enum HookSettingsInstaller {
         guard let command else {
             return false
         }
-        return URL(fileURLWithPath: command).lastPathComponent == managedCommandName
+        let unquoted = command.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+        return URL(fileURLWithPath: unquoted).lastPathComponent == managedCommandName
     }
 
     private static func readSettings(from url: URL) throws -> String {

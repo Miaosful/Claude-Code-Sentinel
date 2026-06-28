@@ -126,10 +126,7 @@ final class AppModel: ObservableObject {
     }
 
     func clearStaleSessions() {
-        let active = hookStore.sessions.filter { session in
-            session.status != .stale && session.status != .ended
-        }
-        hookStore = SessionStore(sessions: active)
+        hookStore.clearInactiveSessions()
         store = hookStore
         persistStore()
         refreshVisibleRuntimeState()
@@ -190,7 +187,7 @@ final class AppModel: ObservableObject {
         let previousStore = hookStore
         hookStore.markStale(
             timeout: SessionStore.defaultStaleTimeout,
-            activeClaudeProcessesDetected: !processSnapshot.processes.isEmpty
+            activeClaudeProcessIDs: Set(processSnapshot.processes.map(\.pid))
         )
         guard hookStore != previousStore else {
             return
