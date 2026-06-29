@@ -2,3 +2,6 @@
 .DS_Store
 dist/
 .superpowers/
+.codex/
+.vscode/
+docs/superpowers/

@@ -110,7 +110,7 @@ func testProcessDetectorMarksVscodeDescendantAsVscodeSource() {
         entries: [
             ProcessListEntry(pid: 10, parentPID: 1, command: "/Applications/Visual Studio Code.app/Contents/MacOS/Electron"),
             ProcessListEntry(pid: 11, parentPID: 10, command: "/bin/zsh -l"),
-            ProcessListEntry(pid: 12, parentPID: 11, command: "/usr/local/bin/node /Users/m1/.npm/_npx/@anthropic-ai/claude-code/cli.js")
+            ProcessListEntry(pid: 12, parentPID: 11, command: "/usr/local/bin/node /Users/example/.npm/_npx/@anthropic-ai/claude-code/cli.js")
         ],
         now: Date(timeIntervalSince1970: 201)
     )
@@ -125,8 +125,8 @@ func testProcessDetectorKeepsMultipleClaudeProcessesInSameVSCodeWindowForPIDTrac
         entries: [
             ProcessListEntry(pid: 10, parentPID: 1, command: "/Applications/Visual Studio Code.app/Contents/MacOS/Electron"),
             ProcessListEntry(pid: 11, parentPID: 10, command: "/Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper.app/Contents/MacOS/Code Helper"),
-            ProcessListEntry(pid: 20, parentPID: 11, command: "/Users/m1/.vscode/extensions/anthropic.claude-code/resources/native-binary/claude --output-format stream-json"),
-            ProcessListEntry(pid: 21, parentPID: 11, command: "/Users/m1/.vscode/extensions/anthropic.claude-code/resources/native-binary/claude --output-format stream-json")
+            ProcessListEntry(pid: 20, parentPID: 11, command: "/Users/example/.vscode/extensions/anthropic.claude-code/resources/native-binary/claude --output-format stream-json"),
+            ProcessListEntry(pid: 21, parentPID: 11, command: "/Users/example/.vscode/extensions/anthropic.claude-code/resources/native-binary/claude --output-format stream-json")
         ],
         now: Date(timeIntervalSince1970: 202)
     )
@@ -152,9 +152,9 @@ func testProcessDetectorFindsNearestClaudeAncestorForHookProcess() {
         for: 303,
         entries: [
             ProcessListEntry(pid: 300, parentPID: 1, command: "/Applications/Visual Studio Code.app/Contents/MacOS/Electron"),
-            ProcessListEntry(pid: 301, parentPID: 300, command: "/Users/m1/.vscode/extensions/anthropic.claude-code/resources/native-binary/claude"),
-            ProcessListEntry(pid: 302, parentPID: 301, command: "/Users/m1/Documents/vibe projects/CC Sentinel/dist/CCSentinelApp.app/Contents/MacOS/cc-sentinel-wrapper"),
-            ProcessListEntry(pid: 303, parentPID: 301, command: "/Users/m1/Documents/vibe projects/CC Sentinel/dist/CCSentinelApp.app/Contents/MacOS/cc-sentinel-hook")
+            ProcessListEntry(pid: 301, parentPID: 300, command: "/Users/example/.vscode/extensions/anthropic.claude-code/resources/native-binary/claude"),
+            ProcessListEntry(pid: 302, parentPID: 301, command: "/Users/example/Documents/vibe projects/CC Sentinel/dist/CCSentinelApp.app/Contents/MacOS/cc-sentinel-wrapper"),
+            ProcessListEntry(pid: 303, parentPID: 301, command: "/Users/example/Documents/vibe projects/CC Sentinel/dist/CCSentinelApp.app/Contents/MacOS/cc-sentinel-hook")
         ]
     )
 
@@ -163,9 +163,9 @@ func testProcessDetectorFindsNearestClaudeAncestorForHookProcess() {
 
 func testProcessDetectorFindsNearestClaudeAncestorFromLightweightProcessLookup() {
     let ancestors: [Int32: ProcessIdentity] = [
-        40: ProcessIdentity(pid: 40, parentPID: 30, executablePath: "/Users/m1/bin/cc-sentinel-hook"),
-        30: ProcessIdentity(pid: 30, parentPID: 20, executablePath: "/Users/m1/bin/cc-sentinel-wrapper"),
-        20: ProcessIdentity(pid: 20, parentPID: 10, executablePath: "/Users/m1/.vscode/extensions/anthropic.claude-code/resources/native-binary/claude"),
+        40: ProcessIdentity(pid: 40, parentPID: 30, executablePath: "/Users/example/bin/cc-sentinel-hook"),
+        30: ProcessIdentity(pid: 30, parentPID: 20, executablePath: "/Users/example/bin/cc-sentinel-wrapper"),
+        20: ProcessIdentity(pid: 20, parentPID: 10, executablePath: "/Users/example/.vscode/extensions/anthropic.claude-code/resources/native-binary/claude"),
         10: ProcessIdentity(pid: 10, parentPID: 1, executablePath: "/bin/zsh")
     ]
 
@@ -223,8 +223,8 @@ func testProcessFallbackCollapsesMultipleVSCodeProcessesIntoOneVisibleSession() 
     let snapshot = ClaudeProcessSnapshot(
         scannedAt: Date(timeIntervalSince1970: 300),
         processes: [
-            ClaudeProcess(pid: 20, parentPID: 11, source: .vscode, command: "/Users/m1/.vscode/extensions/anthropic.claude-code/resources/native-binary/claude --output-format stream-json"),
-            ClaudeProcess(pid: 21, parentPID: 11, source: .vscode, command: "/Users/m1/.vscode/extensions/anthropic.claude-code/resources/native-binary/claude --output-format stream-json")
+            ClaudeProcess(pid: 20, parentPID: 11, source: .vscode, command: "/Users/example/.vscode/extensions/anthropic.claude-code/resources/native-binary/claude --output-format stream-json"),
+            ClaudeProcess(pid: 21, parentPID: 11, source: .vscode, command: "/Users/example/.vscode/extensions/anthropic.claude-code/resources/native-binary/claude --output-format stream-json")
         ]
     )
 
@@ -1079,7 +1079,7 @@ func testInstallerReplacesOldManagedHookPath() throws {
 }
 
 func testInstallerQuotesHookCommandPathWithSpaces() throws {
-    let path = "/Users/m1/vibe projects/CC Sentinel/cc-sentinel-hook"
+    let path = "/Users/example/vibe projects/CC Sentinel/cc-sentinel-hook"
     let result = try HookSettingsInstaller.previewInstall(
         existingSettingsJSON: #"{"theme":"dark"}"#,
         hookBinaryPath: path
@@ -1131,7 +1131,7 @@ func testQuotedHookCommandPathWithSpacesExecutesThroughShell() throws {
 }
 
 func testInstallerRoundTripsQuotedHookPathWithSpaces() throws {
-    let path = "/Users/m1/vibe projects/CC Sentinel/cc-sentinel-hook"
+    let path = "/Users/example/vibe projects/CC Sentinel/cc-sentinel-hook"
     let installed = try HookSettingsInstaller.previewInstall(
         existingSettingsJSON: #"{"theme":"dark"}"#,
         hookBinaryPath: path
