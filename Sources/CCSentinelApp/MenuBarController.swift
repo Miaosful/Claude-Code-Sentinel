@@ -20,7 +20,10 @@ final class MenuBarController {
     var onShowContextMenu: (() -> Void)?
     private var currentStatus: AggregateStatus = .idle
     private var iconStyle: MenuBarIconStyle = .dot
-    private var glowLayer: CALayer?
+    private var breathingTimer: Timer?
+    private var breathingPhase: Double = 0
+    private let breathingCycleDuration: TimeInterval = 1.8
+    private let breathingInterval: TimeInterval = 0.05
 
     var button: NSStatusBarButton? {
         statusItem.button
@@ -39,6 +42,9 @@ final class MenuBarController {
     func update(status: AggregateStatus) {
         currentStatus = status
         guard let button else { return }
+        if breathingTimer != nil, status == .waitingApproval {
+            return
+        }
         button.image = renderImage(status: status, style: iconStyle)
         button.contentTintColor = tintColor(status: status)
     }
@@ -101,61 +107,65 @@ final class MenuBarController {
     }
 
     func setWaitingGlow(active: Bool) {
-        guard let button else { return }
         if active {
-            startWaitingGlow(in: button)
+            startBreathing()
         } else {
-            stopWaitingGlow()
+            stopBreathing()
         }
     }
 
-    private func startWaitingGlow(in button: NSStatusBarButton) {
-        guard glowLayer == nil, let host = button.layer else { return }
-        host.masksToBounds = false
-
-        let glow = CALayer()
-        glow.bounds = CGRect(x: 0, y: 0, width: 4, height: 4)
-        glow.position = CGPoint(x: button.bounds.midX, y: button.bounds.midY)
-        glow.cornerRadius = 2
-        glow.backgroundColor = NSColor.systemYellow.cgColor
-        glow.shadowColor = NSColor.systemYellow.cgColor
-        glow.shadowOpacity = 0.0
-        glow.shadowRadius = 3
-        host.addSublayer(glow)
-        glowLayer = glow
-
-        let swell = CABasicAnimation(keyPath: "shadowRadius")
-        swell.fromValue = 3
-        swell.toValue = 15
-        swell.duration = 1.9
-        swell.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        swell.repeatCount = .infinity
-
-        let fade = CABasicAnimation(keyPath: "shadowOpacity")
-        fade.fromValue = 0.85
-        fade.toValue = 0.0
-        fade.duration = 1.9
-        fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        fade.repeatCount = .infinity
-
-        glow.add(swell, forKey: "glowSwell")
-        glow.add(fade, forKey: "glowFade")
-
-        let pulse = CABasicAnimation(keyPath: "opacity")
-        pulse.fromValue = 1.0
-        pulse.toValue = 0.78
-        pulse.duration = 0.95
-        pulse.autoreverses = true
-        pulse.repeatCount = .infinity
-        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        host.add(pulse, forKey: "coreBreathe")
+    private func startBreathing() {
+        guard breathingTimer == nil else { return }
+        breathingPhase = 0
+        applyBreathingFrame()
+        let timer = Timer(timeInterval: breathingInterval, target: self, selector: #selector(breathingTick), userInfo: nil, repeats: true)
+        RunLoop.main.add(timer, forMode: .common)
+        breathingTimer = timer
     }
 
-    private func stopWaitingGlow() {
-        glowLayer?.removeFromSuperlayer()
-        glowLayer = nil
-        button?.layer?.removeAnimation(forKey: "coreBreathe")
-        button?.layer?.opacity = 1.0
+    private func stopBreathing() {
+        breathingTimer?.invalidate()
+        breathingTimer = nil
+        update(status: currentStatus)
+    }
+
+    @objc private func breathingTick() {
+        applyBreathingFrame()
+    }
+
+    private func applyBreathingFrame() {
+        guard let button else { return }
+        let intensity = (sin(2.0 * .pi * breathingPhase) + 1) / 2
+        breathingPhase = (breathingPhase + breathingStep).truncatingRemainder(dividingBy: 1)
+
+        if iconStyle == .dot {
+            button.image = breathingDotImage(color: .systemYellow, intensity: intensity)
+            button.contentTintColor = nil
+        } else {
+            button.image = renderImage(status: .waitingApproval, style: .symbol)
+            button.contentTintColor = NSColor.systemYellow.withAlphaComponent(0.45 + 0.55 * CGFloat(intensity))
+        }
+    }
+
+    private var breathingStep: Double {
+        breathingInterval / breathingCycleDuration
+    }
+
+    private func breathingDotImage(color: NSColor, intensity: Double) -> NSImage {
+        let size = NSSize(width: 18, height: 18)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        let dotRect = NSRect(x: 4, y: 4, width: 10, height: 10)
+        let haloAlpha = CGFloat(0.08 + 0.30 * intensity)
+        let haloGrowth = CGFloat(2.0 + 2.5 * intensity)
+        color.withAlphaComponent(haloAlpha).setFill()
+        NSBezierPath(ovalIn: dotRect.insetBy(dx: -haloGrowth, dy: -haloGrowth)).fill()
+        let coreAlpha = CGFloat(0.55 + 0.45 * intensity)
+        color.withAlphaComponent(coreAlpha).setFill()
+        NSBezierPath(ovalIn: dotRect).fill()
+        image.unlockFocus()
+        image.isTemplate = false
+        return image
     }
 
     @objc private func toggle() {
