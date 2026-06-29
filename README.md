@@ -152,5 +152,4 @@ script/build_and_run.sh --verify
 
 ## 许可证
 
-发布为开源项目前，请在仓库根目录添加明确的 `LICENSE` 文件。当前 README 不对项目授权方式作假设。
-
+本项目采用 [MIT License](LICENSE) 开源。

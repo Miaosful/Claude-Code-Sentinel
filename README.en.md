@@ -152,5 +152,4 @@ If your change touches hook installation, session state, or auto approval, pleas
 
 ## License
 
-Before publishing this repository as open source, add an explicit `LICENSE` file at the repository root. This README does not assume a license.
-
+This project is open sourced under the [MIT License](LICENSE).
