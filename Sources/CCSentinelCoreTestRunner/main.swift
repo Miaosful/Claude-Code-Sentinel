@@ -1258,14 +1258,13 @@ func testDefaultPolicyAsksForEveryTool() {
 }
 
 func testLowRiskReadCanBeAllowedWhenUserOptedIn() {
-    var policy = ApprovalPolicy.default
-    policy.allowWorkspaceReads = true
+    let config = AutoApprovalConfig(schemaVersion: 1, enabled: true, workspace: "/repo", rules: [.allowWorkspaceRead()])
 
-    let decision = policy.evaluate(
+    let decision = config.evaluate(
         tool: "Read",
         command: "README.md",
         cwd: "/repo",
-        workspace: "/repo"
+        fallbackWorkspace: "/repo"
     )
 
     assertEqual(decision, .allow, "opted-in read is allowed")
@@ -1283,19 +1282,98 @@ func testGitPushIsDeniedByDefault() {
 }
 
 func testWorkspacePrefixSiblingIsNotAllowed() {
-    let policy = ApprovalPolicy(allowWorkspaceReads: true, allowWorkspaceEdits: false)
-    let decision = policy.evaluate(
+    let config = AutoApprovalConfig(schemaVersion: 1, enabled: true, workspace: "/repo", rules: [.allowWorkspaceRead()])
+    let decision = config.evaluate(
         tool: "Read",
         command: "/repo-sibling/README.md",
         cwd: "/repo",
-        workspace: "/repo"
+        fallbackWorkspace: "/repo"
     )
 
     assertEqual(decision, .ask, "workspace prefix sibling is not allowed")
 }
 
+func testBashCommandPrefixRuleAllowsLowRiskCommand() {
+    let config = AutoApprovalConfig(
+        schemaVersion: 1,
+        enabled: true,
+        workspace: "/repo",
+        rules: [
+            AutoApprovalRule(
+                id: "allow-git-status",
+                effect: .allow,
+                tool: "Bash",
+                scope: .workspace,
+                match: .init(commandPrefixes: ["git status"])
+            )
+        ]
+    )
+
+    let decision = config.evaluate(
+        tool: "Bash",
+        command: "git status --short",
+        cwd: "/repo",
+        fallbackWorkspace: "/repo"
+    )
+
+    assertEqual(decision, ApprovalDecision.allow, "command prefix allow rule permits low-risk bash command")
+}
+
+func testAutoApprovalConfigAllowsMultiplePrefixRules() {
+    let config = AutoApprovalConfig(
+        schemaVersion: 1,
+        enabled: true,
+        workspace: "/repo",
+        rules: [
+            AutoApprovalRule(
+                id: "allow-git-diff",
+                effect: .allow,
+                tool: "Bash",
+                scope: .workspace,
+                match: .init(commandPrefixes: ["git status", "git diff"])
+            )
+        ]
+    )
+
+    let decision = config.evaluate(
+        tool: "Bash",
+        command: "git diff --stat",
+        cwd: "/repo",
+        fallbackWorkspace: "/repo"
+    )
+
+    assertEqual(decision, ApprovalDecision.allow, "multiple prefix rules allow matching command")
+}
+
+func testDenyRuleStillBeatsLaterLowRiskPrefixRule() {
+    let config = AutoApprovalConfig(
+        schemaVersion: 1,
+        enabled: true,
+        workspace: "/repo",
+        rules: [
+            .denySensitiveShell(),
+            AutoApprovalRule(
+                id: "allow-git-prefix",
+                effect: .allow,
+                tool: "Bash",
+                scope: .workspace,
+                match: .init(commandPrefixes: ["git"])
+            )
+        ]
+    )
+
+    let decision = config.evaluate(
+        tool: "Bash",
+        command: "git push origin main",
+        cwd: "/repo",
+        fallbackWorkspace: "/repo"
+    )
+
+    assertEqual(decision, ApprovalDecision.deny, "deny rule still wins before broad low-risk prefix rule")
+}
+
 func testAutoApprovalSettingsDefaultToDisabled() {
-    assertEqual(AutoApprovalSettings.default.enabled, false, "auto approval defaults disabled")
+    assertEqual(AutoApprovalConfig.default.enabled, false, "auto approval defaults disabled")
 }
 
 func testAutoApprovalDoesNothingWhenDisabled() throws {
@@ -1306,7 +1384,7 @@ func testAutoApprovalDoesNothingWhenDisabled() throws {
 
     let result = try AutoApprovalHookDecision.evaluate(
         inputData: input,
-        settings: .default,
+        config: .default,
         stats: &stats,
         now: Date(timeIntervalSince1970: 1_800_000_000)
     )
@@ -1319,16 +1397,17 @@ func testAutoApprovalAllowsWorkspaceReadAndRecordsStats() throws {
     let input = """
     {"hook_event_name":"PermissionRequest","session_id":"auto-read","cwd":"/repo","tool_name":"Read","tool_input":{"file_path":"/repo/README.md"}}
     """.data(using: .utf8)!
-    let settings = AutoApprovalSettings(
+    let config = AutoApprovalConfig(
+        schemaVersion: 1,
         enabled: true,
-        policy: ApprovalPolicy(allowWorkspaceReads: true, allowWorkspaceEdits: false),
-        workspace: "/repo"
+        workspace: "/repo",
+        rules: [.allowWorkspaceRead()]
     )
     var stats = AutoApprovalStats()
 
     let result = try AutoApprovalHookDecision.evaluate(
         inputData: input,
-        settings: settings,
+        config: config,
         stats: &stats,
         now: Date(timeIntervalSince1970: 1_800_000_000)
     )
@@ -1347,16 +1426,17 @@ func testAutoApprovalDoesNotAllowOutsideWorkspaceRead() throws {
     let input = """
     {"hook_event_name":"PermissionRequest","session_id":"auto-outside","cwd":"/repo","tool_name":"Read","tool_input":{"file_path":"/etc/passwd"}}
     """.data(using: .utf8)!
-    let settings = AutoApprovalSettings(
+    let config = AutoApprovalConfig(
+        schemaVersion: 1,
         enabled: true,
-        policy: ApprovalPolicy(allowWorkspaceReads: true, allowWorkspaceEdits: false),
-        workspace: "/repo"
+        workspace: "/repo",
+        rules: [.allowWorkspaceRead()]
     )
     var stats = AutoApprovalStats()
 
     let result = try AutoApprovalHookDecision.evaluate(
         inputData: input,
-        settings: settings,
+        config: config,
         stats: &stats,
         now: Date(timeIntervalSince1970: 1_800_000_000)
     )
@@ -1364,6 +1444,132 @@ func testAutoApprovalDoesNotAllowOutsideWorkspaceRead() throws {
     assertEqual(result.decision, .ask, "outside workspace read is not auto-approved")
     assertEqual(result.outputJSON, nil, "outside workspace read has no hook output")
     assertEqual(stats.totalCount, 0, "outside workspace read does not increment stats")
+}
+
+func testAutoApprovalConfigRoundTripsJSON() throws {
+    let config = AutoApprovalConfig(
+        schemaVersion: 1,
+        enabled: true,
+        workspace: "/repo",
+        profile: AutoApprovalProfile(name: "Preset", notes: "shared"),
+        rules: [.allowWorkspaceRead(), .denySensitiveShell()]
+    )
+    let url = FileManager.default.temporaryDirectory
+        .appendingPathComponent("cc-sentinel-auto-config-\(UUID().uuidString)")
+        .appendingPathExtension("json")
+    defer { try? FileManager.default.removeItem(at: url) }
+
+    try AutoApprovalConfigPersistence.save(config, to: url)
+    let loaded = try AutoApprovalConfigPersistence.load(from: url)
+
+    assertEqual(loaded, config, "config persistence round trips")
+}
+
+func testAutoApprovalConfigRejectsUnsupportedSchemaVersion() throws {
+    let data = """
+    {"schemaVersion":99,"enabled":true,"workspace":"/repo","rules":[]}
+    """.data(using: .utf8)!
+
+    do {
+        _ = try AutoApprovalConfigPersistence.decode(data)
+        print("FAIL: unsupported schema version should be rejected.")
+        Foundation.exit(1)
+    } catch AutoApprovalConfigError.unsupportedSchemaVersion(99) {
+    } catch {
+        print("FAIL: unsupported schema version failed with unexpected error \(error).")
+        Foundation.exit(1)
+    }
+}
+
+func testAutoApprovalConfigErrorDescriptionsAreActionable() {
+    assertEqual(
+        AutoApprovalConfigError.unsupportedSchemaVersion(99).userFacingDescription,
+        "Unsupported auto-approval config schemaVersion 99. This version supports schemaVersion 1.",
+        "unsupported schema version description is actionable"
+    )
+    assertEqual(
+        AutoApprovalConfigError.emptyRuleID.userFacingDescription,
+        "Every auto-approval rule must have a non-empty id.",
+        "empty rule id description is actionable"
+    )
+    assertEqual(
+        AutoApprovalConfigError.emptyCommandMatch(ruleID: "deny-shell").userFacingDescription,
+        "Rule deny-shell must define at least one commandContains or commandPrefixes matcher.",
+        "empty command match description is actionable"
+    )
+}
+
+func testAutoApprovalConfigMigratesLegacySettings() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("cc-sentinel-auto-migrate-\(UUID().uuidString)", isDirectory: true)
+    let configURL = directory.appendingPathComponent("auto-approval-config.json")
+    let legacyURL = directory.appendingPathComponent("auto-approval-settings.json")
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    try AutoApprovalSettingsPersistence.save(
+        AutoApprovalSettings(
+            enabled: true,
+            policy: ApprovalPolicy(allowWorkspaceReads: true, allowWorkspaceEdits: false),
+            workspace: "/repo"
+        ),
+        to: legacyURL
+    )
+
+    let config = try AutoApprovalConfigMigration.loadMigrating(configURL: configURL, legacySettingsURL: legacyURL)
+
+    assertEqual(config.enabled, true, "migration keeps enabled")
+    assertEqual(config.workspace, "/repo", "migration keeps workspace")
+    assertTrue(config.rules.contains(.allowWorkspaceRead()), "migration adds workspace read rule")
+    assertTrue(config.rules.contains(.denySensitiveShell()), "migration adds sensitive shell deny rule")
+    assertTrue(FileManager.default.fileExists(atPath: configURL.path), "migration writes new config")
+}
+
+func testAutoApprovalConfigImportBacksUpAndReplacesActiveConfig() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("cc-sentinel-auto-import-\(UUID().uuidString)", isDirectory: true)
+    let activeURL = directory.appendingPathComponent("auto-approval-config.json")
+    let sourceURL = directory.appendingPathComponent("incoming.json")
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let existing = AutoApprovalConfig(schemaVersion: 1, enabled: false, workspace: "/old", rules: [])
+    let incoming = AutoApprovalConfig(schemaVersion: 1, enabled: true, workspace: "/new", rules: [.allowWorkspaceRead()])
+    try AutoApprovalConfigPersistence.save(existing, to: activeURL)
+    try AutoApprovalConfigPersistence.save(incoming, to: sourceURL)
+
+    let backupURL = try AutoApprovalConfigPersistence.replaceActiveConfig(
+        with: sourceURL,
+        activeURL: activeURL,
+        now: Date(timeIntervalSince1970: 1_800_000_000)
+    )
+
+    assertTrue(FileManager.default.fileExists(atPath: backupURL.path), "import creates backup")
+    assertEqual(try AutoApprovalConfigPersistence.load(from: backupURL), existing, "backup preserves old config")
+    assertEqual(try AutoApprovalConfigPersistence.load(from: activeURL), incoming, "import replaces active config")
+}
+
+func testAutoApprovalConfigImportRejectsInvalidFileWithoutReplacingActiveConfig() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("cc-sentinel-auto-import-invalid-\(UUID().uuidString)", isDirectory: true)
+    let activeURL = directory.appendingPathComponent("auto-approval-config.json")
+    let sourceURL = directory.appendingPathComponent("incoming.json")
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let existing = AutoApprovalConfig(schemaVersion: 1, enabled: false, workspace: "/old", rules: [])
+    try AutoApprovalConfigPersistence.save(existing, to: activeURL)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    try Data(#"{"schemaVersion":99,"enabled":true,"workspace":"/new","rules":[]}"#.utf8).write(to: sourceURL)
+
+    do {
+        _ = try AutoApprovalConfigPersistence.replaceActiveConfig(with: sourceURL, activeURL: activeURL)
+        print("FAIL: invalid import should be rejected.")
+        Foundation.exit(1)
+    } catch AutoApprovalConfigError.unsupportedSchemaVersion(99) {
+    } catch {
+        print("FAIL: invalid import failed with unexpected error \(error).")
+        Foundation.exit(1)
+    }
+
+    assertEqual(try AutoApprovalConfigPersistence.load(from: activeURL), existing, "invalid import keeps active config")
 }
 
 func testAutoApprovalStatsPersistenceRoundTripsJSON() throws {
@@ -1404,10 +1610,19 @@ testDefaultPolicyAsksForEveryTool()
 testLowRiskReadCanBeAllowedWhenUserOptedIn()
 testGitPushIsDeniedByDefault()
 testWorkspacePrefixSiblingIsNotAllowed()
+testBashCommandPrefixRuleAllowsLowRiskCommand()
+testAutoApprovalConfigAllowsMultiplePrefixRules()
+testDenyRuleStillBeatsLaterLowRiskPrefixRule()
 testAutoApprovalSettingsDefaultToDisabled()
 try testAutoApprovalDoesNothingWhenDisabled()
 try testAutoApprovalAllowsWorkspaceReadAndRecordsStats()
 try testAutoApprovalDoesNotAllowOutsideWorkspaceRead()
+try testAutoApprovalConfigRoundTripsJSON()
+try testAutoApprovalConfigRejectsUnsupportedSchemaVersion()
+testAutoApprovalConfigErrorDescriptionsAreActionable()
+try testAutoApprovalConfigMigratesLegacySettings()
+try testAutoApprovalConfigImportBacksUpAndReplacesActiveConfig()
+try testAutoApprovalConfigImportRejectsInvalidFileWithoutReplacingActiveConfig()
 try testAutoApprovalStatsPersistenceRoundTripsJSON()
 testRecordingAutoApprovalIncrementsTodayAndTotal()
 print("PASS: ApprovalPolicyTests")

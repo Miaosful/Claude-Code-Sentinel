@@ -48,11 +48,13 @@ CC Sentinel 管理的配置会写成 Claude command hook，并在升级或卸载
 
 ## 暂停与自动审批
 
-状态栏菜单可以暂停监控。自动审批默认关闭；开启后当前只自动允许工作区内的 `Read` 请求，并记录今日/总计统计。工作区外读取、编辑、Bash、`sudo`、`rm -rf`、`git push` 等危险或高风险操作不会自动同意。
+状态栏菜单可以暂停监控。自动审批默认关闭；策略完整保存在本机 JSON 配置文件中。导入配置时会先备份现有配置，再整份覆盖为导入文件。默认配置只自动允许工作区内的 `Read` 请求，并记录今日/总计统计。工作区外读取、编辑、Bash、`sudo`、`rm -rf`、`git push` 等危险或高风险操作不会自动同意。
 
 自动审批配置和统计默认保存在：
 
 ```text
-~/Library/Application Support/CC Sentinel/auto-approval-settings.json
+~/Library/Application Support/CC Sentinel/auto-approval-config.json
 ~/Library/Application Support/CC Sentinel/auto-approval-stats.json
 ```
+
+仓库里还有一个可直接导入的低风险模板：`docs/examples/auto-approval-config.json`

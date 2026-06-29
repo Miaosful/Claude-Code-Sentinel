@@ -25,14 +25,18 @@ do {
 }
 
 private func autoApprovalOutput(for data: Data, environment: [String: String]) -> String? {
-    let settingsURL = CCSentinelPaths.autoApprovalSettingsURL(environment: environment)
+    let configURL = CCSentinelPaths.autoApprovalConfigURL(environment: environment)
+    let legacySettingsURL = CCSentinelPaths.autoApprovalSettingsURL(environment: environment)
     let statsURL = CCSentinelPaths.autoApprovalStatsURL(environment: environment)
     do {
-        let settings = try AutoApprovalSettingsPersistence.load(from: settingsURL)
+        let config = try AutoApprovalConfigMigration.loadMigrating(
+            configURL: configURL,
+            legacySettingsURL: legacySettingsURL
+        )
         var stats = try AutoApprovalStatsPersistence.load(from: statsURL)
         let result = try AutoApprovalHookDecision.evaluate(
             inputData: data,
-            settings: settings,
+            config: config,
             stats: &stats
         )
         if result.decision == .allow {

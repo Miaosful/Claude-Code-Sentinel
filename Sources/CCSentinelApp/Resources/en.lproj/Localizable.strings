@@ -52,6 +52,11 @@
 "auto_approval.total_trend" = "Across sessions";
 "auto_approval.no_last_action" = "No auto approvals recorded yet";
 "auto_approval.last_action" = "Last auto approval recorded";
+"auto_approval.config_title" = "Auto approval config";
+"auto_approval.config_path" = "Config file";
+"auto_approval.import_config" = "Import config";
+"auto_approval.export_config" = "Export config";
+"auto_approval.reveal_config" = "Show in Finder";
 "hook_status.installed.title" = "Hooks installed";
 "hook_status.installed.detail" = "Receiving Claude Code events.";
 "hook_status.missing.title" = "Hooks not installed";
@@ -73,3 +78,5 @@
 "integration.hooks_installed" = "Hooks installed. Backup created.";
 "integration.hooks_uninstalled" = "Hooks removed. Backup created.";
 "integration.hooks_failed" = "Hook settings update failed.";
+"integration.auto_approval_config_imported" = "Auto approval config imported. Backup created.";
+"integration.auto_approval_config_import_failed" = "Auto approval config import failed.";

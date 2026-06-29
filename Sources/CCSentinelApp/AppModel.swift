@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import CCSentinelCore
 
@@ -10,8 +11,8 @@ final class AppModel: ObservableObject {
     @Published var autoApprovalEnabled = false {
         didSet {
             guard autoApprovalEnabled != oldValue else { return }
-            autoApprovalSettings.enabled = autoApprovalEnabled
-            persistAutoApprovalSettings()
+            autoApprovalConfig.enabled = autoApprovalEnabled
+            persistAutoApprovalConfig()
         }
     }
     @Published var integrationMessage: IntegrationMessage?
@@ -30,25 +31,28 @@ final class AppModel: ObservableObject {
     }
 
     private let storeURL: URL
-    private let autoApprovalSettingsURL: URL
+    private let autoApprovalConfigURL: URL
+    private let legacyAutoApprovalSettingsURL: URL
     private let autoApprovalStatsURL: URL
     private let settingsURL: URL
     private let hookBinaryURL: URL
     private let userDefaults: UserDefaults
-    private var autoApprovalSettings: AutoApprovalSettings
+    private var autoApprovalConfig: AutoApprovalConfig
     private static let languagePreferenceDefaultsKey = "ccSentinel.languagePreference"
     private static let iconStyleDefaultsKey = "ccSentinel.iconStylePreference"
 
     init(
         storeURL: URL = AppModel.defaultStoreURL(),
-        autoApprovalSettingsURL: URL = AppModel.defaultAutoApprovalSettingsURL(),
+        autoApprovalConfigURL: URL = AppModel.defaultAutoApprovalConfigURL(),
+        legacyAutoApprovalSettingsURL: URL = AppModel.defaultAutoApprovalSettingsURL(),
         autoApprovalStatsURL: URL = AppModel.defaultAutoApprovalStatsURL(),
         settingsURL: URL = AppModel.defaultClaudeSettingsURL(),
         hookBinaryURL: URL = AppModel.defaultHookBinaryURL(),
         userDefaults: UserDefaults = .standard
     ) {
         self.storeURL = storeURL
-        self.autoApprovalSettingsURL = autoApprovalSettingsURL
+        self.autoApprovalConfigURL = autoApprovalConfigURL
+        self.legacyAutoApprovalSettingsURL = legacyAutoApprovalSettingsURL
         self.autoApprovalStatsURL = autoApprovalStatsURL
         self.settingsURL = settingsURL
         self.hookBinaryURL = hookBinaryURL
@@ -61,17 +65,15 @@ final class AppModel: ObservableObject {
         ) ?? .dot
         self.hookStore = (try? SessionStorePersistence.load(from: storeURL)) ?? SessionStore()
         self.store = hookStore
-        self.autoApprovalSettings = (try? AutoApprovalSettingsPersistence.load(from: autoApprovalSettingsURL)) ??
-            AutoApprovalSettings(
-                enabled: false,
-                policy: ApprovalPolicy(allowWorkspaceReads: true, allowWorkspaceEdits: false),
-                workspace: FileManager.default.homeDirectoryForCurrentUser.path
-            )
-        self.autoApprovalEnabled = autoApprovalSettings.enabled
+        self.autoApprovalConfig = (try? AutoApprovalConfigMigration.loadMigrating(
+            configURL: autoApprovalConfigURL,
+            legacySettingsURL: legacyAutoApprovalSettingsURL
+        )) ?? .default
+        self.autoApprovalEnabled = autoApprovalConfig.enabled
         self.autoApprovalStats = (try? AutoApprovalStatsPersistence.load(from: autoApprovalStatsURL)) ?? AutoApprovalStats()
         refreshHookInstallationStatus()
         refreshVisibleRuntimeState()
-        persistAutoApprovalSettings()
+        persistAutoApprovalConfig()
     }
 
     var aggregateStatus: AggregateStatus {
@@ -84,6 +86,10 @@ final class AppModel: ObservableObject {
 
     var autoApprovedTotal: Int {
         autoApprovalStats.totalCount
+    }
+
+    var autoApprovalConfigFileURL: URL {
+        autoApprovalConfigURL
     }
 
     var approvalFocus: ApprovalFocus? {
@@ -135,6 +141,63 @@ final class AppModel: ObservableObject {
     func recordAutoApproval(toolName: String, summary: String, workspace: String) {
         autoApprovalStats.record(toolName: toolName, summary: summary, workspace: workspace)
         try? AutoApprovalStatsPersistence.save(autoApprovalStats, to: autoApprovalStatsURL)
+    }
+
+    func importAutoApprovalConfig(from url: URL) {
+        do {
+            let backupURL = try AutoApprovalConfigPersistence.replaceActiveConfig(with: url, activeURL: autoApprovalConfigURL)
+            let imported = try AutoApprovalConfigPersistence.load(from: autoApprovalConfigURL)
+            autoApprovalConfig = imported
+            autoApprovalEnabled = imported.enabled
+            integrationMessage = IntegrationMessage(key: .autoApprovalConfigImported, detail: backupURL.path, isError: false)
+        } catch {
+            integrationMessage = IntegrationMessage(
+                key: .autoApprovalConfigImportFailed,
+                detail: autoApprovalConfigErrorDetail(error),
+                isError: true
+            )
+        }
+    }
+
+    func exportAutoApprovalConfig(to url: URL) {
+        do {
+            try AutoApprovalConfigPersistence.save(autoApprovalConfig, to: url)
+        } catch {
+            integrationMessage = IntegrationMessage(key: .autoApprovalConfigImportFailed, detail: String(describing: error), isError: true)
+        }
+    }
+
+    func presentImportAutoApprovalConfigPanel() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return
+        }
+        importAutoApprovalConfig(from: url)
+    }
+
+    func presentExportAutoApprovalConfigPanel() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "auto-approval-config.json"
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return
+        }
+        exportAutoApprovalConfig(to: url)
+    }
+
+    func revealAutoApprovalConfigInFinder() {
+        NSWorkspace.shared.activateFileViewerSelecting([autoApprovalConfigURL])
+    }
+
+    private func autoApprovalConfigErrorDetail(_ error: Error) -> String {
+        if let configError = error as? AutoApprovalConfigError {
+            return configError.userFacingDescription
+        }
+        return String(describing: error)
     }
 
     func installHooks() {
@@ -201,8 +264,12 @@ final class AppModel: ObservableObject {
         CCSentinelPaths.storeURL()
     }
 
-    private func persistAutoApprovalSettings() {
-        try? AutoApprovalSettingsPersistence.save(autoApprovalSettings, to: autoApprovalSettingsURL)
+    private func persistAutoApprovalConfig() {
+        try? AutoApprovalConfigPersistence.save(autoApprovalConfig, to: autoApprovalConfigURL)
+    }
+
+    private static func defaultAutoApprovalConfigURL() -> URL {
+        CCSentinelPaths.autoApprovalConfigURL()
     }
 
     private static func defaultAutoApprovalSettingsURL() -> URL {

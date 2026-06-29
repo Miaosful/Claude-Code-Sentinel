@@ -3,28 +3,48 @@ import CCSentinelCore
 
 struct StatusPopoverView: View {
     static let preferredWidth: CGFloat = 382
-    static let preferredHeight: CGFloat = 700
+    static let preferredMaxHeight: CGFloat = 700
 
     @ObservedObject var model: AppModel
+    var onContentHeightChange: ((CGFloat) -> Void)? = nil
+    @State private var reportedHeight: CGFloat = 0
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                header
-                summary
-                approvalRequestSection
-                sessions
-                controlPanel
-                autoApprovalStats
-                integrationMessage
+        ViewThatFits(in: .vertical) {
+            content
+            ScrollView {
+                content
             }
-            .padding(12)
-            .padding(.bottom, 8)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .frame(width: Self.preferredWidth, alignment: .topLeading)
-        .frame(maxHeight: Self.preferredHeight, alignment: .topLeading)
+        .frame(maxHeight: Self.preferredMaxHeight, alignment: .topLeading)
         .background(Color.ccPopoverBackground)
+        .onPreferenceChange(PopoverContentHeightKey.self) { height in
+            let clamped = min(height, Self.preferredMaxHeight)
+            guard abs(clamped - reportedHeight) > 0.5 else { return }
+            reportedHeight = clamped
+            onContentHeightChange?(clamped)
+        }
+    }
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            header
+            summary
+            approvalRequestSection
+            sessions
+            controlPanel
+            autoApprovalStats
+            integrationMessage
+        }
+        .padding(12)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(key: PopoverContentHeightKey.self, value: proxy.size.height)
+            }
+        )
     }
 
     private var header: some View {
@@ -591,6 +611,14 @@ struct StatusPopoverView: View {
 
     private func localized(_ key: L10nKey) -> String {
         model.localized(key)
+    }
+}
+
+private struct PopoverContentHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 

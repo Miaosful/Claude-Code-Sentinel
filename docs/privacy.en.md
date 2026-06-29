@@ -23,5 +23,5 @@ Stored local data may include:
 
 ## Auto Approval
 
-Auto approval must be explicit opt-in. The default policy is ask; dangerous commands such as `git push`, `rm -rf`, `sudo`, and sensitive path access are denied by default.
+Auto approval must be explicit opt-in. The approval policy is stored locally in `auto-approval-config.json`; importing a config backs up the old file and replaces it as a whole. The default config only auto-allows workspace reads, and dangerous commands such as `git push`, `rm -rf`, `sudo`, and sensitive path access are not auto-approved by default.
 

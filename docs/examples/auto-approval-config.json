@@ -1,0 +1,84 @@
+{
+  "enabled": true,
+  "profile": {
+    "name": "CC Sentinel common low-risk preset",
+    "notes": "Workspace-scoped inspection and build commands. Update workspace before importing on another machine."
+  },
+  "rules": [
+    {
+      "id": "deny-sensitive-shell",
+      "effect": "deny",
+      "tool": "Bash",
+      "match": {
+        "commandContains": [
+          "git push",
+          "rm -rf",
+          "sudo ",
+          "chmod -r",
+          "/.ssh",
+          "/.gnupg"
+        ]
+      }
+    },
+    {
+      "id": "allow-workspace-read",
+      "effect": "allow",
+      "tool": "Read",
+      "scope": "workspace"
+    },
+    {
+      "id": "allow-text-inspection",
+      "effect": "allow",
+      "tool": "Bash",
+      "scope": "workspace",
+      "match": {
+        "commandPrefixes": [
+          "pwd",
+          "ls",
+          "find .",
+          "rg",
+          "grep",
+          "cat",
+          "sed -n",
+          "wc",
+          "head",
+          "tail"
+        ]
+      }
+    },
+    {
+      "id": "allow-git-inspection",
+      "effect": "allow",
+      "tool": "Bash",
+      "scope": "workspace",
+      "match": {
+        "commandPrefixes": [
+          "git status",
+          "git diff",
+          "git log",
+          "git branch",
+          "git show",
+          "git rev-parse",
+          "git remote"
+        ]
+      }
+    },
+    {
+      "id": "allow-swift-workflow",
+      "effect": "allow",
+      "tool": "Bash",
+      "scope": "workspace",
+      "match": {
+        "commandPrefixes": [
+          "swift build",
+          "swift test",
+          "swift run CCSentinelCoreTestRunner",
+          "swift run cc-sentinel-dump-state",
+          "script/build_and_run.sh --verify"
+        ]
+      }
+    }
+  ],
+  "schemaVersion": 1,
+  "workspace": "/Users/m1/Documents/vibe projects/CC Sentinel"
+}

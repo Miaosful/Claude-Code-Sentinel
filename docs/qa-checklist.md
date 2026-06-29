@@ -22,7 +22,7 @@ Date: 2026-06-24
 - [x] Uninstall preview removes only CC Sentinel-managed hook entries.
 - [x] Uninstall apply writes a backup and removes only managed hook entries.
 - [x] English and Simplified Chinese localization keys are covered.
-- [x] Auto approval is off by default through `ApprovalPolicy.default`.
+- [x] Auto approval is off by default through `AutoApprovalConfig.default`.
 - [x] Today and total auto-approval counters match audit events.
 - [x] Session store persists to and loads from JSON.
 - [x] Menu popover install/uninstall buttons call the hook settings installer.

@@ -23,5 +23,5 @@ CC Sentinel 只在本机运行，不向外部服务发送 Claude Code 事件。
 
 ## 自动审批
 
-自动审批必须明确 opt-in。默认策略为 ask；危险命令如 `git push`、`rm -rf`、`sudo` 和敏感路径访问默认 deny。
+自动审批必须明确 opt-in。审批策略保存在本机 `auto-approval-config.json` 中，导入配置会先备份再整份覆盖。默认配置只自动允许工作区内读取；危险命令如 `git push`、`rm -rf`、`sudo` 和敏感路径访问不会被默认自动同意。
 

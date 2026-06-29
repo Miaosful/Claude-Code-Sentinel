@@ -14,7 +14,7 @@ It is built for people who use the Claude Code CLI, the VS Code Claude Code exte
 - Session list: source, working directory, latest tool request, and approval summary.
 - VS Code support: detects VS Code Claude Code sessions and falls back to local process detection before hooks report a session.
 - Hook management: install, update, or uninstall CC Sentinel-managed Claude Code hooks from the menu bar popover.
-- Local auto approval: disabled by default; currently only auto-allows low-risk workspace-scoped read requests.
+- Local auto approval: disabled by default; policy is driven by a local JSON config file that can be imported, exported, and shared.
 - Local privacy boundary: events, settings, and counters stay on your machine; tool input summaries are redacted and truncated.
 - Bilingual UI: Simplified Chinese, English, and system language mode.
 
@@ -74,7 +74,7 @@ More details:
 
 ## Auto Approval
 
-Auto approval is disabled by default. When enabled, the current policy only auto-allows workspace-scoped `Read` requests and records daily and total approval counters.
+Auto approval is disabled by default. The full policy lives in a local JSON config file; imports back up the current config and then replace it as a whole. The default config only auto-allows workspace-scoped `Read` requests and records daily and total approval counters.
 
 These actions are not auto-approved by default:
 
@@ -86,12 +86,14 @@ These actions are not auto-approved by default:
 - `git push`
 - other high-risk operations or sensitive paths
 
-Auto-approval settings and stats are stored by default at:
+Auto-approval config and stats are stored by default at:
 
 ```text
-~/Library/Application Support/CC Sentinel/auto-approval-settings.json
+~/Library/Application Support/CC Sentinel/auto-approval-config.json
 ~/Library/Application Support/CC Sentinel/auto-approval-stats.json
 ```
+
+An importable low-risk starter template is included at `docs/examples/auto-approval-config.json`.
 
 ## Development
 

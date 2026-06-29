@@ -13,14 +13,10 @@ public struct AutoApprovalHookResult: Equatable, Sendable {
 public enum AutoApprovalHookDecision {
     public static func evaluate(
         inputData: Data,
-        settings: AutoApprovalSettings,
+        config: AutoApprovalConfig,
         stats: inout AutoApprovalStats,
         now: Date = Date()
     ) throws -> AutoApprovalHookResult {
-        guard settings.enabled else {
-            return AutoApprovalHookResult(decision: .ask, outputJSON: nil)
-        }
-
         let event = try EventNormalizer.normalize(inputData)
         guard event.kind == .permissionRequest else {
             return AutoApprovalHookResult(decision: .ask, outputJSON: nil)
@@ -28,12 +24,12 @@ public enum AutoApprovalHookDecision {
 
         let tool = event.toolName ?? "Unknown"
         let command = event.toolCommand ?? event.toolSummary ?? ""
-        let workspace = settings.workspace.isEmpty ? event.cwd : settings.workspace
-        let decision = settings.policy.evaluate(
+        let workspace = config.workspace.isEmpty ? event.cwd : config.workspace
+        let decision = config.evaluate(
             tool: tool,
             command: command,
             cwd: event.cwd,
-            workspace: workspace
+            fallbackWorkspace: workspace
         )
 
         guard decision == .allow else {

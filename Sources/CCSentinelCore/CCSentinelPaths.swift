@@ -23,6 +23,12 @@ public enum CCSentinelPaths {
             applicationSupportDirectory(environment: environment).appendingPathComponent("events-fallback.jsonl")
     }
 
+    public static func autoApprovalConfigURL(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL {
+        environment["CC_SENTINEL_AUTO_APPROVAL_CONFIG_PATH"]
+            .map { URL(fileURLWithPath: $0) } ??
+            applicationSupportDirectory(environment: environment).appendingPathComponent("auto-approval-config.json")
+    }
+
     public static func autoApprovalSettingsURL(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL {
         environment["CC_SENTINEL_AUTO_APPROVAL_SETTINGS_PATH"]
             .map { URL(fileURLWithPath: $0) } ??

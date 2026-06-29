@@ -53,6 +53,11 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case autoApprovedTotalTrend = "auto_approval.total_trend"
     case autoApprovalNoLastAction = "auto_approval.no_last_action"
     case autoApprovalLastAction = "auto_approval.last_action"
+    case autoApprovalConfigTitle = "auto_approval.config_title"
+    case autoApprovalConfigPath = "auto_approval.config_path"
+    case autoApprovalImportConfig = "auto_approval.import_config"
+    case autoApprovalExportConfig = "auto_approval.export_config"
+    case autoApprovalRevealConfig = "auto_approval.reveal_config"
     case hookStatusInstalledTitle = "hook_status.installed.title"
     case hookStatusInstalledDetail = "hook_status.installed.detail"
     case hookStatusMissingTitle = "hook_status.missing.title"
@@ -74,4 +79,6 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case hooksInstalled = "integration.hooks_installed"
     case hooksUninstalled = "integration.hooks_uninstalled"
     case hooksFailed = "integration.hooks_failed"
+    case autoApprovalConfigImported = "integration.auto_approval_config_imported"
+    case autoApprovalConfigImportFailed = "integration.auto_approval_config_import_failed"
 }

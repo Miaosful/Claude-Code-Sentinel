@@ -27,8 +27,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let popover = NSPopover()
         popover.behavior = .transient
-        popover.contentSize = NSSize(width: StatusPopoverView.preferredWidth, height: StatusPopoverView.preferredHeight)
-        popover.contentViewController = NSHostingController(rootView: StatusPopoverView(model: model))
+        let view = StatusPopoverView(model: model) { [weak popover] height in
+            guard let popover else { return }
+            popover.contentSize = NSSize(width: StatusPopoverView.preferredWidth, height: height)
+        }
+        let hostingController = NSHostingController(rootView: view)
+        popover.contentViewController = hostingController
+        popover.contentSize = NSSize(width: StatusPopoverView.preferredWidth, height: StatusPopoverView.preferredMaxHeight)
         self.popover = popover
 
         model.$store

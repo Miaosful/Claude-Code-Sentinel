@@ -52,6 +52,11 @@
 "auto_approval.total_trend" = "跨会话累计";
 "auto_approval.no_last_action" = "暂无自动同意记录";
 "auto_approval.last_action" = "最近一次自动同意已记录";
+"auto_approval.config_title" = "自动审批配置";
+"auto_approval.config_path" = "配置文件";
+"auto_approval.import_config" = "导入配置";
+"auto_approval.export_config" = "导出配置";
+"auto_approval.reveal_config" = "在 Finder 中显示";
 "hook_status.installed.title" = "Hooks 已安装";
 "hook_status.installed.detail" = "正在接收 Claude Code 事件。";
 "hook_status.missing.title" = "Hooks 未安装";
@@ -73,3 +78,5 @@
 "integration.hooks_installed" = "Hooks 已安装，并已创建备份。";
 "integration.hooks_uninstalled" = "Hooks 已移除，并已创建备份。";
 "integration.hooks_failed" = "Hook 设置更新失败。";
+"integration.auto_approval_config_imported" = "自动审批配置已导入，并已创建备份。";
+"integration.auto_approval_config_import_failed" = "自动审批配置导入失败。";

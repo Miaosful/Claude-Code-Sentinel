@@ -48,11 +48,11 @@ Uninstall removes only hook commands named `cc-sentinel-hook`; user hooks are pr
 
 ## Pause And Auto Approval
 
-Monitoring can be paused from the menu bar popover. Auto approval is disabled by default. When enabled, the current policy only auto-allows workspace-scoped `Read` requests and records today/total audit counters. Outside-workspace reads, edits, Bash, `sudo`, `rm -rf`, `git push`, and other high-risk actions are not auto-approved.
+Monitoring can be paused from the menu bar popover. Auto approval is disabled by default, and the full policy lives in a local JSON config file. Importing a config backs up the current file and then replaces it as a whole. The default config only auto-allows workspace-scoped `Read` requests and records today/total audit counters. Outside-workspace reads, edits, Bash, `sudo`, `rm -rf`, `git push`, and other high-risk actions are not auto-approved.
 
-Auto-approval settings and stats are stored by default at:
+Auto-approval config and stats are stored by default at:
 
 ```text
-~/Library/Application Support/CC Sentinel/auto-approval-settings.json
+~/Library/Application Support/CC Sentinel/auto-approval-config.json
 ~/Library/Application Support/CC Sentinel/auto-approval-stats.json
 ```

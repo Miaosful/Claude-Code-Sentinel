@@ -14,7 +14,7 @@ CC Sentinel 是一个本地运行的 macOS 菜单栏工具，用来观察 Claude
 - 会话列表：展示 Claude Code 会话来源、工作目录、最近工具请求和审批摘要。
 - VS Code 支持：识别 VS Code Claude Code 会话，并在 hooks 尚未上报时使用本机进程作为 fallback。
 - Hooks 管理：从菜单栏安装、更新或卸载 CC Sentinel 管理的 Claude Code hooks。
-- 本地自动审批：默认关闭；开启后当前只自动允许工作区内的低风险读取请求。
+- 本地自动审批：默认关闭；策略由本机 JSON 配置文件驱动，可导入/导出并分享。
 - 本地隐私边界：事件、统计和配置保存在本机，工具输入会做脱敏和截断。
 - 中英文界面：支持简体中文、英文和跟随系统语言。
 
@@ -74,7 +74,7 @@ script/build_and_run.sh --verify
 
 ## 自动审批
 
-自动审批默认关闭。开启后，当前策略只自动允许工作区内的 `Read` 请求，并记录今日和累计自动同意次数。
+自动审批默认关闭。策略完整保存在本机 JSON 配置文件中，App 的导入操作会先备份现有配置，再整份覆盖为导入文件。默认配置只自动允许工作区内的 `Read` 请求，并记录今日和累计自动同意次数。
 
 以下操作不会被默认自动同意：
 
@@ -89,9 +89,11 @@ script/build_and_run.sh --verify
 自动审批配置和统计默认保存在：
 
 ```text
-~/Library/Application Support/CC Sentinel/auto-approval-settings.json
+~/Library/Application Support/CC Sentinel/auto-approval-config.json
 ~/Library/Application Support/CC Sentinel/auto-approval-stats.json
 ```
+
+仓库里提供了一个可直接导入的常用低风险模板：`docs/examples/auto-approval-config.json`
 
 ## 开发
 

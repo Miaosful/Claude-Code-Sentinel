@@ -20,6 +20,27 @@ public struct ApprovalPolicy: Codable, Equatable, Sendable {
         self.allowWorkspaceEdits = allowWorkspaceEdits
     }
 
+    public static func from(rules: [AutoApprovalRule]) -> ApprovalPolicy {
+        ApprovalPolicy(
+            allowWorkspaceReads: rules.contains { $0.id == "allow-workspace-read" && $0.effect == .allow },
+            allowWorkspaceEdits: rules.contains { $0.id == "allow-workspace-edit" && $0.effect == .allow }
+        )
+    }
+
+    public func rules(workspace: String) -> [AutoApprovalRule] {
+        var result: [AutoApprovalRule] = []
+        if allowWorkspaceReads {
+            result.append(.allowWorkspaceRead())
+        }
+        if allowWorkspaceEdits {
+            result.append(.allowWorkspaceEdit())
+        }
+        if !workspace.isEmpty {
+            result.append(.denySensitiveShell())
+        }
+        return result
+    }
+
     public func evaluate(tool: String, command: String, cwd: String, workspace: String) -> ApprovalDecision {
         let lowerCommand = command.lowercased()
         if isDeniedCommand(lowerCommand) {
