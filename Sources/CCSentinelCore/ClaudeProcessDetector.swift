@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#endif
 
 public struct ProcessListEntry: Equatable, Sendable {
     public var pid: Int32
@@ -9,6 +12,18 @@ public struct ProcessListEntry: Equatable, Sendable {
         self.pid = pid
         self.parentPID = parentPID
         self.command = command
+    }
+}
+
+public struct ProcessIdentity: Equatable, Sendable {
+    public var pid: Int32
+    public var parentPID: Int32
+    public var executablePath: String
+
+    public init(pid: Int32, parentPID: Int32, executablePath: String) {
+        self.pid = pid
+        self.parentPID = parentPID
+        self.executablePath = executablePath
     }
 }
 
@@ -87,6 +102,40 @@ public enum ClaudeProcessDetector {
         return nil
     }
 
+    public static func nearestClaudeAncestorPID(
+        for processID: Int32,
+        inspect: (Int32) -> ProcessIdentity?
+    ) -> Int32? {
+        guard let process = inspect(processID) else {
+            return nil
+        }
+
+        var parentPID = process.parentPID
+        var visited = Set<Int32>()
+        while parentPID > 0, !visited.contains(parentPID), let parent = inspect(parentPID) {
+            visited.insert(parent.pid)
+            let entry = ProcessListEntry(
+                pid: parent.pid,
+                parentPID: parent.parentPID,
+                command: parent.executablePath
+            )
+            if isClaudeCodeProcess(entry) {
+                return parent.pid
+            }
+            parentPID = parent.parentPID
+        }
+
+        return nil
+    }
+
+    public static func nearestClaudeAncestorPIDFromSystem(
+        for processID: Int32 = ProcessInfo.processInfo.processIdentifier
+    ) -> Int32? {
+        nearestClaudeAncestorPID(for: processID) { pid in
+            ProcessIdentity.current(pid: pid)
+        }
+    }
+
     private static func isClaudeCodeProcess(_ entry: ProcessListEntry) -> Bool {
         let command = entry.command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !command.isEmpty else {
@@ -135,6 +184,44 @@ public enum ClaudeProcessDetector {
             let lastPathComponent = URL(fileURLWithPath: trimmed).lastPathComponent
             return lastPathComponent == name || trimmed == name
         }
+    }
+}
+
+public extension ProcessIdentity {
+    static func current(pid: Int32) -> ProcessIdentity? {
+        #if canImport(Darwin)
+        var pathBuffer = [CChar](repeating: 0, count: 4096)
+        let pathLength = proc_pidpath(pid, &pathBuffer, UInt32(pathBuffer.count))
+        guard pathLength > 0 else {
+            return nil
+        }
+
+        var info = proc_bsdinfo()
+        let infoLength = proc_pidinfo(
+            pid,
+            PROC_PIDTBSDINFO,
+            0,
+            &info,
+            Int32(MemoryLayout<proc_bsdinfo>.stride)
+        )
+        guard infoLength == Int32(MemoryLayout<proc_bsdinfo>.stride) else {
+            return nil
+        }
+
+        let executablePath = pathBuffer.withUnsafeBufferPointer { buffer in
+            let endIndex = buffer.firstIndex(of: 0) ?? buffer.endIndex
+            let bytes = buffer[..<endIndex].map { UInt8(bitPattern: $0) }
+            return String(decoding: bytes, as: UTF8.self)
+        }
+
+        return ProcessIdentity(
+            pid: pid,
+            parentPID: Int32(info.pbi_ppid),
+            executablePath: executablePath
+        )
+        #else
+        return nil
+        #endif
     }
 }
 

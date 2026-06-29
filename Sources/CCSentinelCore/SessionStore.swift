@@ -112,6 +112,9 @@ public struct SessionStore: Codable, Equatable, Sendable {
             }
             var staleSession = session
             staleSession.status = .stale
+            staleSession.claudePID = nil
+            staleSession.waitingSince = nil
+            staleSession.approvalRequest = nil
             return staleSession
         }
     }

@@ -47,6 +47,10 @@ private func autoApprovalOutput(for data: Data, environment: [String: String]) -
 
 private func enrichedDataWithClaudePID(_ data: Data) -> Data {
     do {
+        if let pid = ClaudeProcessDetector.nearestClaudeAncestorPIDFromSystem() {
+            return try HookPayloadEnricher.addClaudePID(pid, to: data)
+        }
+
         let entries = try ProcessListEntry.current()
         guard let pid = ClaudeProcessDetector.nearestClaudeAncestorPID(
             for: ProcessInfo.processInfo.processIdentifier,

@@ -1,6 +1,44 @@
 import Foundation
 import CCSentinelCore
 
+let processEnvironment = ProcessInfo.processInfo.environment
+
+if processEnvironment["CC_SENTINEL_PID_SMOKE_PARENT"] == "1" {
+    guard let runner = processEnvironment["CC_SENTINEL_TEST_RUNNER"] else {
+        FileHandle.standardError.write(Data("missing test runner path\n".utf8))
+        Foundation.exit(2)
+    }
+
+    let child = Process()
+    child.executableURL = URL(fileURLWithPath: runner)
+    var childEnvironment = processEnvironment
+    childEnvironment.removeValue(forKey: "CC_SENTINEL_PID_SMOKE_PARENT")
+    childEnvironment["CC_SENTINEL_PID_SMOKE_CHILD"] = "1"
+    child.environment = childEnvironment
+
+    let output = Pipe()
+    let error = Pipe()
+    child.standardOutput = output
+    child.standardError = error
+    try child.run()
+    let outputData = output.fileHandleForReading.readDataToEndOfFile()
+    let errorData = error.fileHandleForReading.readDataToEndOfFile()
+    child.waitUntilExit()
+
+    FileHandle.standardOutput.write(outputData)
+    FileHandle.standardError.write(errorData)
+    Foundation.exit(child.terminationStatus)
+}
+
+if processEnvironment["CC_SENTINEL_PID_SMOKE_CHILD"] == "1" {
+    if let pid = ClaudeProcessDetector.nearestClaudeAncestorPIDFromSystem() {
+        print(pid)
+        Foundation.exit(0)
+    }
+    FileHandle.standardError.write(Data("missing claude ancestor\n".utf8))
+    Foundation.exit(3)
+}
+
 func assertEqual<T: Equatable>(_ actual: T, _ expected: T, _ message: String) {
     if actual != expected {
         print("FAIL: \(message). Expected \(expected), got \(actual).")
@@ -121,6 +159,48 @@ func testProcessDetectorFindsNearestClaudeAncestorForHookProcess() {
     )
 
     assertEqual(ancestorPID, .some(301), "hook ancestry resolves to nearest real Claude process")
+}
+
+func testProcessDetectorFindsNearestClaudeAncestorFromLightweightProcessLookup() {
+    let ancestors: [Int32: ProcessIdentity] = [
+        40: ProcessIdentity(pid: 40, parentPID: 30, executablePath: "/Users/m1/bin/cc-sentinel-hook"),
+        30: ProcessIdentity(pid: 30, parentPID: 20, executablePath: "/Users/m1/bin/cc-sentinel-wrapper"),
+        20: ProcessIdentity(pid: 20, parentPID: 10, executablePath: "/Users/m1/.vscode/extensions/anthropic.claude-code/resources/native-binary/claude"),
+        10: ProcessIdentity(pid: 10, parentPID: 1, executablePath: "/bin/zsh")
+    ]
+
+    let ancestorPID = ClaudeProcessDetector.nearestClaudeAncestorPID(for: 40) { pid in
+        ancestors[pid]
+    }
+
+    assertEqual(ancestorPID, .some(20), "detector finds Claude ancestor without a full process-list scan")
+}
+
+func testLightweightAncestorLookupWorksAgainstRealProcessTree() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("pid-smoke-\(UUID().uuidString)", isDirectory: true)
+    let fakeClaudeURL = directory.appendingPathComponent("claude")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    try FileManager.default.copyItem(at: URL(fileURLWithPath: CommandLine.arguments[0]), to: fakeClaudeURL)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fakeClaudeURL.path)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let process = Process()
+    process.executableURL = fakeClaudeURL
+    var environment = ProcessInfo.processInfo.environment
+    environment["CC_SENTINEL_PID_SMOKE_PARENT"] = "1"
+    environment["CC_SENTINEL_TEST_RUNNER"] = CommandLine.arguments[0]
+    process.environment = environment
+
+    let output = Pipe()
+    process.standardOutput = output
+    try process.run()
+    let data = output.fileHandleForReading.readDataToEndOfFile()
+    process.waitUntilExit()
+
+    let stdout = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+    assertEqual(process.terminationStatus, 0, "lightweight lookup finds fake Claude parent in a real process tree")
+    assertTrue(Int32(stdout ?? "") != nil, "lightweight lookup prints ancestor pid")
 }
 
 func testProcessFallbackMakesEmptyStoreLookRunning() {
@@ -246,6 +326,8 @@ testProcessDetectorMarksVscodeDescendantAsVscodeSource()
 testProcessDetectorKeepsMultipleClaudeProcessesInSameVSCodeWindowForPIDTracking()
 testProcessDetectorKeepsIndependentCLIProcessesSeparate()
 testProcessDetectorFindsNearestClaudeAncestorForHookProcess()
+testProcessDetectorFindsNearestClaudeAncestorFromLightweightProcessLookup()
+try testLightweightAncestorLookupWorksAgainstRealProcessTree()
 testProcessFallbackMakesEmptyStoreLookRunning()
 testProcessFallbackCollapsesMultipleVSCodeProcessesIntoOneVisibleSession()
 testProcessFallbackWorksWhenNoHookStoreExistsYet()
@@ -561,6 +643,39 @@ func testOldStaleApprovalDoesNotReviveWhileClaudeProcessIsActive() {
     assertEqual(store.aggregateStatus, .degraded, "old stale approval remains degraded")
 }
 
+func testStaleApprovalClearsClaudePIDToAvoidPIDReuseRevival() {
+    var store = SessionStore(sessions: [
+        ClaudeSession(
+            id: "s1",
+            source: .vscode,
+            cwd: "/repo",
+            status: .waitingApproval,
+            claudePID: 5000,
+            lastEventAt: Date(timeIntervalSince1970: 0),
+            waitingSince: Date(timeIntervalSince1970: 0),
+            approvalRequest: ApprovalRequest(
+                toolName: "Bash",
+                summary: "command=echo hi",
+                requestedAt: Date(timeIntervalSince1970: 0)
+            )
+        )
+    ])
+
+    store.markStale(
+        now: Date(timeIntervalSince1970: 120),
+        timeout: 60,
+        activeClaudeProcessIDs: []
+    )
+    store.markStale(
+        now: Date(timeIntervalSince1970: 130),
+        timeout: 60,
+        activeClaudeProcessIDs: [5000]
+    )
+
+    assertEqual(store.sessions.first?.status, .some(.stale), "PID reuse does not revive a stale approval")
+    assertEqual(store.sessions.first?.claudePID, nil, "stale approval drops stale Claude process id")
+}
+
 func testClearInactiveSessionsRemovesExpiredWaitingApproval() {
     var store = SessionStore(sessions: [
         ClaudeSession(
@@ -611,6 +726,7 @@ testWaitingApprovalBecomesStaleWhenOnlyUnrelatedClaudeProcessIsActive()
 testPIDLessWaitingApprovalUsesFallbackRevivalTimeout()
 testRecentStaleApprovalRevivesWhileItsClaudeProcessIsActive()
 testOldStaleApprovalDoesNotReviveWhileClaudeProcessIsActive()
+testStaleApprovalClearsClaudePIDToAvoidPIDReuseRevival()
 testClearInactiveSessionsRemovesExpiredWaitingApproval()
 print("PASS: SessionStoreTests")
 
@@ -979,6 +1095,41 @@ func testInstallerQuotesHookCommandPathWithSpaces() throws {
     assertEqual(command, #""\#(path)""#, "installer quotes hook command path containing spaces")
 }
 
+func testQuotedHookCommandPathWithSpacesExecutesThroughShell() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("cc sentinel hook path \(UUID().uuidString)", isDirectory: true)
+    let executableURL = directory.appendingPathComponent("cc-sentinel-hook")
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    try """
+    #!/bin/sh
+    printf ok
+    """.write(to: executableURL, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executableURL.path)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let installed = try HookSettingsInstaller.previewInstall(
+        existingSettingsJSON: "{}",
+        hookBinaryPath: executableURL.path
+    ).previewJSON
+    let root = try parseJSONObject(installed)
+    let hooks = root["hooks"] as? [String: Any]
+    let sessionStart = hooks?["SessionStart"] as? [[String: Any]]
+    let command = (sessionStart?.first?["hooks"] as? [[String: Any]])?.first?["command"] as? String
+
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/bin/sh")
+    process.arguments = ["-c", command ?? ""]
+    let output = Pipe()
+    process.standardOutput = output
+
+    try process.run()
+    let data = output.fileHandleForReading.readDataToEndOfFile()
+    process.waitUntilExit()
+
+    assertEqual(process.terminationStatus, 0, "quoted hook command with spaces executes through shell")
+    assertEqual(String(data: data, encoding: .utf8), .some("ok"), "quoted hook command runs expected executable")
+}
+
 func testInstallerRoundTripsQuotedHookPathWithSpaces() throws {
     let path = "/Users/m1/vibe projects/CC Sentinel/cc-sentinel-hook"
     let installed = try HookSettingsInstaller.previewInstall(
@@ -1069,6 +1220,7 @@ try testInstallerWritesClaudeHookConfigurationShape()
 try testInstallerReplacesLegacyManagedHookShape()
 try testInstallerReplacesOldManagedHookPath()
 try testInstallerQuotesHookCommandPathWithSpaces()
+try testQuotedHookCommandPathWithSpacesExecutesThroughShell()
 try testInstallerRoundTripsQuotedHookPathWithSpaces()
 try testUninstallRemovesOnlyManagedHook()
 try testInstallerDetectsManagedHooks()
