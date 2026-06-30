@@ -30,6 +30,7 @@ struct StatusPopoverView: View {
 
     private var content: some View {
         VStack(alignment: .leading, spacing: 10) {
+            firstInstallPrompt
             header
             summary
             approvalRequestSection
@@ -112,6 +113,24 @@ struct StatusPopoverView: View {
                 .stroke(Color.ccPanelBorder, lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder
+    private var firstInstallPrompt: some View {
+        if model.requiresHookSetup {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(model.localized(.settingsFirstInstallPrompt))
+                        .font(.caption).fixedSize(horizontal: false, vertical: true)
+                    Button(model.localized(.settingsFirstInstallAction)) { onOpenSettings() }
+                        .controlSize(.small)
+                }
+            }
+            .padding(10)
+            .background(Color.orange.opacity(0.1))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
     }
 
     @ViewBuilder
@@ -208,35 +227,15 @@ struct StatusPopoverView: View {
     private var controlPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
             Divider()
-            hookStatusBanner
             autoApprovalToggle
-            actionGrid
-        }
-    }
-
-    private var hookStatusBanner: some View {
-        HStack(spacing: 10) {
-            Image(systemName: model.hooksInstalled ? "checkmark.circle.fill" : "exclamationmark.circle")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(model.hooksInstalled ? Color.green : Color.secondary)
-                .frame(width: 22)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(localized(model.hooksInstalled ? .hookStatusInstalledTitle : .hookStatusMissingTitle))
-                    .font(.caption.weight(.bold))
-                Text(localized(model.hooksInstalled ? .hookStatusInstalledDetail : .hookStatusMissingDetail))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            Button {
+                model.clearStaleSessions()
+            } label: {
+                Label(localized(.clearStale), systemImage: "trash")
+                    .frame(maxWidth: .infinity)
             }
-            Spacer(minLength: 0)
+            .buttonStyle(CCActionButtonStyle(kind: .secondary))
         }
-        .padding(10)
-        .background(model.hooksInstalled ? Color.green.opacity(0.08) : Color.ccMutedPanelBackground)
-        .overlay {
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(model.hooksInstalled ? Color.green.opacity(0.28) : Color.ccPanelBorder, lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     private var autoApprovalToggle: some View {
@@ -261,45 +260,6 @@ struct StatusPopoverView: View {
                 .stroke(Color.ccPanelBorder, lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: 10))
-    }
-
-    private var actionGrid: some View {
-        Grid(horizontalSpacing: 8, verticalSpacing: 8) {
-            GridRow {
-                Button {
-                    model.installHooks()
-                } label: {
-                    Label(localized(model.hooksInstalled ? .updateHooks : .installHooks), systemImage: model.hooksInstalled ? "arrow.triangle.2.circlepath" : "arrow.down.to.line.compact")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(CCActionButtonStyle(kind: model.hooksInstalled ? .secondary : .primary))
-
-                Button {
-                    model.pauseOrResumeMonitoring()
-                } label: {
-                    Label(model.monitoringPaused ? localized(.resumeMonitoring) : localized(.pauseMonitoring), systemImage: model.monitoringPaused ? "play.fill" : "pause.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(CCActionButtonStyle(kind: .secondary))
-            }
-            GridRow {
-                Button {
-                    model.clearStaleSessions()
-                } label: {
-                    Label(localized(.clearStale), systemImage: "trash")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(CCActionButtonStyle(kind: .secondary))
-
-                Button {
-                    model.uninstallHooks()
-                } label: {
-                    Label(localized(.uninstallHooks), systemImage: "xmark.circle")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(CCActionButtonStyle(kind: .secondary))
-            }
-        }
     }
 
     @ViewBuilder

@@ -149,42 +149,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = menuBarController?.button else { return }
 
         let menu = NSMenu()
-        let languageItem = NSMenuItem(title: model.localized(.languageMenu), action: nil, keyEquivalent: "")
-        let languageMenu = NSMenu()
-
-        for preference in AppLanguagePreference.allCases {
-            let item = NSMenuItem(
-                title: model.localized(preference.titleKey),
-                action: #selector(selectLanguage(_:)),
-                keyEquivalent: ""
-            )
-            item.target = self
-            item.representedObject = preference.rawValue
-            item.state = model.languagePreference == preference ? .on : .off
-            languageMenu.addItem(item)
-        }
-
-        languageItem.submenu = languageMenu
-        menu.addItem(languageItem)
-
-        let iconStyleItem = NSMenuItem(title: model.localized(.iconStyleMenu), action: nil, keyEquivalent: "")
-        let iconStyleMenu = NSMenu()
-
-        for style in MenuBarIconStyle.allCases {
-            let item = NSMenuItem(
-                title: model.localized(style.titleKey),
-                action: #selector(selectIconStyle(_:)),
-                keyEquivalent: ""
-            )
-            item.target = self
-            item.representedObject = style.rawValue
-            item.state = model.iconStylePreference == style ? .on : .off
-            iconStyleMenu.addItem(item)
-        }
-
-        iconStyleItem.submenu = iconStyleMenu
-        menu.addItem(iconStyleItem)
-        menu.addItem(NSMenuItem.separator())
 
         let settingsItem = NSMenuItem(title: model.localized(.settings), action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
@@ -197,22 +161,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(quitItem)
 
         menu.popUp(positioning: nil, at: NSPoint(x: button.bounds.midX, y: button.bounds.minY - 4), in: button)
-    }
-
-    @objc private func selectLanguage(_ sender: NSMenuItem) {
-        guard
-            let rawValue = sender.representedObject as? String,
-            let preference = AppLanguagePreference(rawValue: rawValue)
-        else { return }
-        model.languagePreference = preference
-    }
-
-    @objc private func selectIconStyle(_ sender: NSMenuItem) {
-        guard
-            let rawValue = sender.representedObject as? String,
-            let style = MenuBarIconStyle(rawValue: rawValue)
-        else { return }
-        model.iconStylePreference = style
     }
 
     @objc private func quitApp() {
