@@ -207,7 +207,7 @@ final class AppModel: ObservableObject {
                 hookBinaryPath: hookBinaryURL.path
             )
             hooksInstalled = true
-            integrationMessage = IntegrationMessage(key: .hooksInstalled, detail: backupURL.path, isError: false)
+            integrationMessage = IntegrationMessage(key: .integrationHooksInstalled, detail: backupURL.path, isError: false)
         } catch {
             integrationMessage = IntegrationMessage(key: .hooksFailed, detail: String(describing: error), isError: true)
         }
