@@ -240,7 +240,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hostingController = NSHostingController(rootView: SettingsView(model: model))
         hostingController.sizingOptions = []
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 520),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 640),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
@@ -249,7 +249,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.title = model.localized(.settings)
         window.isReleasedWhenClosed = false
         window.isRestorable = false
-        window.contentMinSize = NSSize(width: 460, height: 320)
+        window.contentMinSize = NSSize(width: 480, height: 400)
         window.center()
 
         let controller = NSWindowController(window: window)

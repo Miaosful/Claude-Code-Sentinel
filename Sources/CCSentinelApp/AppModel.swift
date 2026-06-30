@@ -37,7 +37,7 @@ final class AppModel: ObservableObject {
     private let settingsURL: URL
     private let hookBinaryURL: URL
     private let userDefaults: UserDefaults
-    private var autoApprovalConfig: AutoApprovalConfig
+    @Published var autoApprovalConfig: AutoApprovalConfig
     private static let languagePreferenceDefaultsKey = "ccSentinel.languagePreference"
     private static let iconStyleDefaultsKey = "ccSentinel.iconStylePreference"
 

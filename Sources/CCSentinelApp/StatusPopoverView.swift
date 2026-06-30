@@ -659,7 +659,7 @@ private extension ClaudeSession {
     }
 }
 
-private extension Color {
+extension Color {
     static let ccPopoverBackground = Color(red: 0.94, green: 0.95, blue: 0.94)
     static let ccCardBackground = Color(red: 0.98, green: 0.99, blue: 0.98)
     static let ccMutedPanelBackground = Color(red: 0.89, green: 0.90, blue: 0.89)
