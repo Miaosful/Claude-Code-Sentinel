@@ -88,7 +88,8 @@
 "settings.open" = "Settings…";
 "settings.first_install_prompt" = "Hooks are not installed. CC Sentinel needs them to detect sessions.";
 "settings.first_install_action" = "Open Settings";
-"integration.hooks_installed" = "Installed";
+"integration.installed" = "Installed";
+"integration.hooks_installed" = "Hooks installed. Backup created.";
 "integration.install" = "Install hooks";
 "integration.uninstall" = "Uninstall hooks";
 "integration.pause_monitoring" = "Pause monitoring";

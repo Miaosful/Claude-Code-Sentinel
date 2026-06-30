@@ -88,7 +88,8 @@
 "settings.open" = "设置…";
 "settings.first_install_prompt" = "尚未安装 hooks。CC Sentinel 需要它才能检测会话。";
 "settings.first_install_action" = "打开设置";
-"integration.hooks_installed" = "已安装";
+"integration.installed" = "已安装";
+"integration.hooks_installed" = "Hooks 已安装，并已创建备份。";
 "integration.install" = "安装 hooks";
 "integration.uninstall" = "卸载 hooks";
 "integration.pause_monitoring" = "暂停监控";
