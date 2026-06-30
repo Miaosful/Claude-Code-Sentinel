@@ -57,6 +57,10 @@
 "auto_approval.import_config" = "Import config";
 "auto_approval.export_config" = "Export config";
 "auto_approval.reveal_config" = "Show in Finder";
+"settings.integration.title" = "Integration";
+"settings.integration.detail" = "Install or remove Claude Code hooks from the menu bar popover.";
+"settings.privacy.title" = "Privacy";
+"settings.privacy.detail" = "CC Sentinel stores events locally and does not send data to external services.";
 "hook_status.installed.title" = "Hooks installed";
 "hook_status.installed.detail" = "Receiving Claude Code events.";
 "hook_status.missing.title" = "Hooks not installed";
@@ -71,6 +75,7 @@
 "menu.language.system" = "Follow System";
 "menu.language.zh_hans" = "Simplified Chinese";
 "menu.language.en" = "English";
+"menu.settings" = "Settings…";
 "menu.quit" = "Quit CC Sentinel";
 "menu.icon_style" = "Icon Style";
 "menu.icon_style.dot" = "Dots";

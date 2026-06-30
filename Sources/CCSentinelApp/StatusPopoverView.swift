@@ -6,6 +6,7 @@ struct StatusPopoverView: View {
     static let preferredMaxHeight: CGFloat = 700
 
     @ObservedObject var model: AppModel
+    var onOpenSettings: () -> Void = {}
     var onContentHeightChange: ((CGFloat) -> Void)? = nil
     @State private var reportedHeight: CGFloat = 0
 
@@ -65,6 +66,15 @@ struct StatusPopoverView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            Button {
+                onOpenSettings()
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 30, height: 30)
+            }
+            .buttonStyle(.plain)
+            .help(localized(.settings))
         }
         .padding(.horizontal, 2)
         .padding(.bottom, 4)

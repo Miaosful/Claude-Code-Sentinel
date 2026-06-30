@@ -2,12 +2,12 @@ import SwiftUI
 import CCSentinelCore
 
 struct SettingsView: View {
-    @StateObject private var model = AppModel()
+    @ObservedObject var model: AppModel
 
     var body: some View {
-        Form {
-            Section(localized(.autoApprovalConfigTitle)) {
-                VStack(alignment: .leading, spacing: 8) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                section(title: localized(.autoApprovalConfigTitle)) {
                     Text(localized(.autoApprovalConfigPath))
                         .foregroundStyle(.secondary)
                     Text(model.autoApprovalConfigFileURL.path)
@@ -31,19 +31,34 @@ struct SettingsView: View {
                             Label(localized(.autoApprovalExportConfig), systemImage: "square.and.arrow.up")
                         }
                     }
+                    .controlSize(.small)
+                }
+
+                section(title: localized(.settingsIntegrationTitle)) {
+                    Text(localized(.settingsIntegrationDetail))
+                        .foregroundStyle(.secondary)
+                }
+
+                section(title: localized(.settingsPrivacyTitle)) {
+                    Text(localized(.settingsPrivacyDetail))
+                        .foregroundStyle(.secondary)
                 }
             }
-            Section("Integration") {
-                Text("Install or remove Claude Code hooks from the menu bar popover.")
-                    .foregroundStyle(.secondary)
-            }
-            Section("Privacy") {
-                Text("CC Sentinel stores events locally and does not send data to external services.")
-                    .foregroundStyle(.secondary)
-            }
+            .padding(20)
         }
-        .padding()
-        .frame(width: 460)
+        .frame(width: 460, height: 520)
+    }
+
+    private func section<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.headline)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func localized(_ key: L10nKey) -> String {

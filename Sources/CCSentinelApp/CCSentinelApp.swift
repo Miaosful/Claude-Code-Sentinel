@@ -6,7 +6,15 @@ struct CCSentinelApp: App {
 
     var body: some Scene {
         Settings {
-            SettingsView()
+            SettingsSceneView()
         }
+    }
+}
+
+private struct SettingsSceneView: View {
+    @StateObject private var model = AppModel()
+
+    var body: some View {
+        SettingsView(model: model)
     }
 }

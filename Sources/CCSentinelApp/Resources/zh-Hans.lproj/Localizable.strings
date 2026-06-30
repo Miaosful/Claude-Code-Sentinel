@@ -57,6 +57,10 @@
 "auto_approval.import_config" = "导入配置";
 "auto_approval.export_config" = "导出配置";
 "auto_approval.reveal_config" = "在 Finder 中显示";
+"settings.integration.title" = "集成";
+"settings.integration.detail" = "从菜单栏弹窗中安装或移除 Claude Code hooks。";
+"settings.privacy.title" = "隐私";
+"settings.privacy.detail" = "CC Sentinel 只在本地存储事件，不会向外部服务发送数据。";
 "hook_status.installed.title" = "Hooks 已安装";
 "hook_status.installed.detail" = "正在接收 Claude Code 事件。";
 "hook_status.missing.title" = "Hooks 未安装";
@@ -71,6 +75,7 @@
 "menu.language.system" = "跟随系统";
 "menu.language.zh_hans" = "简体中文";
 "menu.language.en" = "English";
+"menu.settings" = "设置…";
 "menu.quit" = "退出 CC Sentinel";
 "menu.icon_style" = "图标样式";
 "menu.icon_style.dot" = "圆点";

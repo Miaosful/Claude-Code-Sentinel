@@ -79,6 +79,9 @@ open_app() {
     if [[ -n "${CC_SENTINEL_OPEN_POPOVER_ON_LAUNCH:-}" ]]; then
         open_args+=(--env "CC_SENTINEL_OPEN_POPOVER_ON_LAUNCH=$CC_SENTINEL_OPEN_POPOVER_ON_LAUNCH")
     fi
+    if [[ -n "${CC_SENTINEL_OPEN_SETTINGS_ON_LAUNCH:-}" ]]; then
+        open_args+=(--env "CC_SENTINEL_OPEN_SETTINGS_ON_LAUNCH=$CC_SENTINEL_OPEN_SETTINGS_ON_LAUNCH")
+    fi
     /usr/bin/open "${open_args[@]}" "$APP_BUNDLE"
 }
 

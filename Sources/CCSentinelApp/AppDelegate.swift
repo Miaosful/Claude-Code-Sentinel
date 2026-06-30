@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = AppModel()
     private var menuBarController: MenuBarController?
     private var popover: NSPopover?
+    private var settingsWindowController: NSWindowController?
     private var receiver: EventReceiver?
     private var statsTimer: Timer?
     private var cancellables: Set<AnyCancellable> = []
@@ -27,7 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let popover = NSPopover()
         popover.behavior = .transient
-        let view = StatusPopoverView(model: model) { [weak popover] height in
+        let view = StatusPopoverView(model: model, onOpenSettings: { [weak self] in
+            self?.requestSettingsWindow()
+        }) { [weak popover] height in
             guard let popover else { return }
             popover.contentSize = NSSize(width: StatusPopoverView.preferredWidth, height: height)
         }
@@ -61,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.applyIconStyle(model.iconStylePreference)
         syncStatus(model.aggregateStatus)
         openPopoverOnLaunchIfRequested()
+        openSettingsOnLaunchIfRequested()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -102,6 +106,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 350_000_000)
             showPopover()
+        }
+    }
+
+    private func openSettingsOnLaunchIfRequested() {
+        guard ProcessInfo.processInfo.environment["CC_SENTINEL_OPEN_SETTINGS_ON_LAUNCH"] == "1" else {
+            return
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            requestSettingsWindow()
         }
     }
 
@@ -170,6 +184,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         iconStyleItem.submenu = iconStyleMenu
         menu.addItem(iconStyleItem)
+        menu.addItem(NSMenuItem.separator())
+
+        let settingsItem = NSMenuItem(title: model.localized(.settings), action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
 
         menu.addItem(.separator())
 
@@ -198,5 +217,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func quitApp() {
         NSApp.terminate(nil)
+    }
+
+    @objc private func openSettings() {
+        requestSettingsWindow()
+    }
+
+    private func requestSettingsWindow() {
+        popover?.performClose(nil)
+        DispatchQueue.main.async { [weak self] in
+            self?.showSettingsWindow()
+        }
+    }
+
+    private func showSettingsWindow() {
+        if let window = settingsWindowController?.window {
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let hostingController = NSHostingController(rootView: SettingsView(model: model))
+        hostingController.sizingOptions = []
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 520),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentViewController = hostingController
+        window.title = model.localized(.settings)
+        window.isReleasedWhenClosed = false
+        window.isRestorable = false
+        window.contentMinSize = NSSize(width: 460, height: 320)
+        window.center()
+
+        let controller = NSWindowController(window: window)
+        settingsWindowController = controller
+
+        NSApp.activate(ignoringOtherApps: true)
+        controller.showWindow(nil)
     }
 }
