@@ -61,10 +61,6 @@
 "settings.integration.detail" = "从菜单栏弹窗中安装或移除 Claude Code hooks。";
 "settings.privacy.title" = "隐私";
 "settings.privacy.detail" = "CC Sentinel 只在本地存储事件，不会向外部服务发送数据。";
-"hook_status.installed.title" = "Hooks 已安装";
-"hook_status.installed.detail" = "正在接收 Claude Code 事件。";
-"hook_status.missing.title" = "Hooks 未安装";
-"hook_status.missing.detail" = "安装后才能可靠显示会话和审批状态。";
 "actions.install_hooks" = "安装 hooks";
 "actions.update_hooks" = "更新 hooks";
 "actions.uninstall_hooks" = "卸载 hooks";

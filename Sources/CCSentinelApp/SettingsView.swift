@@ -43,7 +43,8 @@ private struct AutoApprovalSettingsCard: View {
 
     var body: some View {
         SettingsCard(title: model.localized(.autoApprovalPolicy)) {
-            Toggle(model.localized(.autoApprovalPolicy), isOn: $model.autoApprovalEnabled)
+            Toggle("", isOn: $model.autoApprovalEnabled)
+                .labelsHidden()
                 .toggleStyle(.switch)
 
             LabeledContent(model.localized(.autoApprovalWorkspace)) {
