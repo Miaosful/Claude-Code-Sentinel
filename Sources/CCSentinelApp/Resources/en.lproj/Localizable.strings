@@ -88,8 +88,7 @@
 "integration.hooks_installed" = "Hooks installed. Backup created.";
 "integration.install" = "Install hooks";
 "integration.uninstall" = "Uninstall hooks";
-"integration.pause_monitoring" = "Pause monitoring";
-"integration.resume_monitoring" = "Resume monitoring";
+"integration.monitoring" = "Monitoring";
 "auto_approval.workspace" = "Workspace";
 "auto_approval.rules" = "Rules";
 "auto_approval.rules_readonly_hint" = "Rules are read-only. Edit the config file, then import it.";

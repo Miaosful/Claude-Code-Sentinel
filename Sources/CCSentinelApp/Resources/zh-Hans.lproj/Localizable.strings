@@ -88,8 +88,7 @@
 "integration.hooks_installed" = "Hooks 已安装，并已创建备份。";
 "integration.install" = "安装 hooks";
 "integration.uninstall" = "卸载 hooks";
-"integration.pause_monitoring" = "暂停监控";
-"integration.resume_monitoring" = "恢复监控";
+"integration.monitoring" = "监控";
 "auto_approval.workspace" = "工作区";
 "auto_approval.rules" = "规则";
 "auto_approval.rules_readonly_hint" = "规则为只读。请编辑配置文件后导入。";

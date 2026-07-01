@@ -167,7 +167,7 @@ private struct IntegrationSettingsCard: View {
                 .controlSize(.small)
             }
 
-            Toggle(model.localized(model.monitoringPaused ? .integrationResumeMonitoring : .integrationPauseMonitoring),
+            Toggle(model.localized(.integrationMonitoring),
                    isOn: Binding(get: { !model.monitoringPaused }, set: { _ in model.pauseOrResumeMonitoring() }))
                 .toggleStyle(.switch)
         }

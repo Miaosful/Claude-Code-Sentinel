@@ -187,8 +187,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let hostingController = NSHostingController(rootView: SettingsView(model: model))
         hostingController.sizingOptions = []
+        let contentSize = NSSize(width: 480, height: 640)
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 640),
+            contentRect: NSRect(origin: .zero, size: contentSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
@@ -198,6 +199,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.isReleasedWhenClosed = false
         window.isRestorable = false
         window.contentMinSize = NSSize(width: 480, height: 400)
+        // Setting contentViewController resizes the window to the SwiftUI fitting
+        // size (tiny for a ScrollView); restore the intended content size.
+        window.setContentSize(contentSize)
         window.center()
 
         let controller = NSWindowController(window: window)
