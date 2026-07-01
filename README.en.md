@@ -74,13 +74,19 @@ More details:
 
 ## Auto Approval
 
-Auto approval is disabled by default. The full policy lives in a local JSON config file; imports back up the current config and then replace it as a whole. The default config only auto-allows workspace-scoped `Read` requests and records daily and total approval counters.
+Auto approval is disabled by default. The full policy lives in a local JSON config file; imports back up the current config and then replace it as a whole. The default config is allow-only and includes workspace-scoped reads plus common low-risk inspection commands. Approved requests record daily and total counters.
+
+Requests that are not auto-approved can be reviewed from the CC Sentinel panel:
+
+- `Allow once` approves only the current request.
+- `Reject once` rejects only the current request.
+- `Allow similar next time` saves a narrow allow rule, then approves the current request.
 
 These actions are not auto-approved by default:
 
 - reads outside the workspace
 - file edits
-- Bash commands
+- unlisted or compound Bash commands
 - `sudo`
 - `rm -rf`
 - `git push`
@@ -91,6 +97,8 @@ Auto-approval config and stats are stored by default at:
 ```text
 ~/Library/Application Support/CC Sentinel/auto-approval-config.json
 ~/Library/Application Support/CC Sentinel/auto-approval-stats.json
+~/Library/Application Support/CC Sentinel/pending-approvals/
+~/Library/Application Support/CC Sentinel/approval-decisions/
 ```
 
 An importable low-risk starter template is included at `docs/examples/auto-approval-config.json`.

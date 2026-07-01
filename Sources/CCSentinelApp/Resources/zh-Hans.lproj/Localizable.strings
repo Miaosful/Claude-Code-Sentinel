@@ -42,6 +42,13 @@
 "approval.source" = "来源";
 "approval.workspace" = "工作区";
 "approval.summary" = "请求";
+"approval.allow_once" = "仅本次允许";
+"approval.reject_once" = "仅本次拒绝";
+"approval.allow_similar" = "下次自动允许类似请求";
+"approval.similar_unavailable" = "无法安全保存类似规则";
+"approval.pending_queue" = "待审核队列";
+"approval.decision_sent" = "决定已发送";
+"approval.decision_failed" = "决定发送失败";
 "auto_approval.policy" = "自动审批策略";
 "auto_approval.off_detail" = "关闭 · CC Sentinel 只会提醒你。";
 "auto_approval.on_detail" = "开启 · 今日 %d 次，总计 %d 次自动同意。";

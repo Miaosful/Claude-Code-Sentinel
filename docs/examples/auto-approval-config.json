@@ -6,21 +6,6 @@
   },
   "rules": [
     {
-      "id": "deny-sensitive-shell",
-      "effect": "deny",
-      "tool": "Bash",
-      "match": {
-        "commandContains": [
-          "git push",
-          "rm -rf",
-          "sudo ",
-          "chmod -r",
-          "/.ssh",
-          "/.gnupg"
-        ]
-      }
-    },
-    {
       "id": "allow-workspace-read",
       "effect": "allow",
       "tool": "Read",

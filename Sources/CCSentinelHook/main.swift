@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import CCSentinelCore
 
 let data = FileHandle.standardInput.readDataToEndOfFile()
@@ -41,12 +42,80 @@ private func autoApprovalOutput(for data: Data, environment: [String: String]) -
         )
         if result.decision == .allow {
             try AutoApprovalStatsPersistence.save(stats, to: statsURL)
+            return result.outputJSON
         }
-        return result.outputJSON
+        guard result.decision == .ask else {
+            return nil
+        }
+        return try panelApprovalOutput(
+            for: data,
+            config: config,
+            environment: environment
+        )
     } catch {
         FileHandle.standardError.write(Data("cc-sentinel-hook: auto approval skipped: \(error)\n".utf8))
         return nil
     }
+}
+
+private func panelApprovalOutput(
+    for data: Data,
+    config: AutoApprovalConfig,
+    environment: [String: String]
+) throws -> String? {
+    let event = try EventNormalizer.normalize(data)
+    guard event.kind == .permissionRequest else {
+        return nil
+    }
+
+    let command = event.toolCommand ?? event.toolSummary ?? ""
+    let now = Date()
+    let timeout = panelApprovalTimeout(environment: environment)
+    let workspace = config.workspace.isEmpty ? event.cwd : config.workspace
+    let approval = PendingApproval(
+        id: pendingApprovalID(event: event, command: command, requestedAt: now),
+        sessionID: event.sessionID,
+        source: event.source,
+        cwd: event.cwd,
+        toolName: event.toolName ?? "Unknown",
+        summary: event.toolSummary ?? command,
+        command: command,
+        requestedAt: now,
+        expiresAt: now.addingTimeInterval(timeout),
+        similarRuleSuggestion: SimilarApprovalSuggestion.make(for: event, workspace: workspace)
+    )
+    let pendingDirectory = CCSentinelPaths.pendingApprovalsDirectory(environment: environment)
+    let decisionsDirectory = CCSentinelPaths.approvalDecisionsDirectory(environment: environment)
+    try PendingApprovalPersistence.save(approval, to: pendingDirectory)
+
+    guard let decision = try PendingApprovalPersistence.waitForDecision(
+        id: approval.id,
+        in: decisionsDirectory,
+        timeout: timeout
+    ) else {
+        try? PendingApprovalPersistence.removeApproval(id: approval.id, from: pendingDirectory)
+        return nil
+    }
+
+    try? PendingApprovalPersistence.removeApproval(id: approval.id, from: pendingDirectory)
+    return AutoApprovalHookDecision.outputJSON(for: decision.decision)
+}
+
+private func panelApprovalTimeout(environment: [String: String]) -> TimeInterval {
+    guard
+        let value = environment["CC_SENTINEL_PANEL_APPROVAL_TIMEOUT"],
+        let timeout = TimeInterval(value),
+        timeout >= 0
+    else {
+        return 120
+    }
+    return timeout
+}
+
+private func pendingApprovalID(event: NormalizedEvent, command: String, requestedAt: Date) -> String {
+    let raw = "\(event.sessionID)\n\(event.cwd)\n\(event.toolName ?? "Unknown")\n\(command)\n\(Int(requestedAt.timeIntervalSince1970 * 1000))"
+    let digest = SHA256.hash(data: Data(raw.utf8))
+    return digest.map { String(format: "%02x", $0) }.joined()
 }
 
 private func enrichedDataWithClaudePID(_ data: Data) -> Data {

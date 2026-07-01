@@ -11,6 +11,15 @@ public struct AutoApprovalHookResult: Equatable, Sendable {
 }
 
 public enum AutoApprovalHookDecision {
+    public static func outputJSON(for panelDecision: PanelApprovalDecision) -> String {
+        switch panelDecision {
+        case .allowOnce, .allowSimilarNextTime:
+            return decisionOutputJSON(behavior: "allow")
+        case .rejectOnce:
+            return decisionOutputJSON(behavior: "deny")
+        }
+    }
+
     public static func evaluate(
         inputData: Data,
         config: AutoApprovalConfig,
@@ -47,8 +56,12 @@ public enum AutoApprovalHookDecision {
     }
 
     private static func allowOutputJSON() -> String {
+        decisionOutputJSON(behavior: "allow")
+    }
+
+    private static func decisionOutputJSON(behavior: String) -> String {
         """
-        {"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}
+        {"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"\(behavior)"}}}
         """
     }
 }

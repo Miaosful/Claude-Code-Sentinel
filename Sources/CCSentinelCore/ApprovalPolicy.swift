@@ -35,18 +35,10 @@ public struct ApprovalPolicy: Codable, Equatable, Sendable {
         if allowWorkspaceEdits {
             result.append(.allowWorkspaceEdit())
         }
-        if !workspace.isEmpty {
-            result.append(.denySensitiveShell())
-        }
         return result
     }
 
     public func evaluate(tool: String, command: String, cwd: String, workspace: String) -> ApprovalDecision {
-        let lowerCommand = command.lowercased()
-        if isDeniedCommand(lowerCommand) {
-            return .deny
-        }
-
         if tool == "Read", allowWorkspaceReads, isWorkspaceScoped(command: command, cwd: cwd, workspace: workspace) {
             return .allow
         }
@@ -56,15 +48,6 @@ public struct ApprovalPolicy: Codable, Equatable, Sendable {
         }
 
         return .ask
-    }
-
-    private func isDeniedCommand(_ command: String) -> Bool {
-        command.contains("git push") ||
-            command.contains("rm -rf") ||
-            command.contains("sudo ") ||
-            command.contains("chmod -r") ||
-            command.contains("/.ssh") ||
-            command.contains("/.gnupg")
     }
 
     private func isWorkspaceScoped(command: String, cwd: String, workspace: String) -> Bool {

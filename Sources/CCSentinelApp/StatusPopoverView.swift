@@ -135,10 +135,105 @@ struct StatusPopoverView: View {
 
     @ViewBuilder
     private var approvalRequestSection: some View {
-        if let focus = model.approvalFocus {
+        if let approval = model.focusedPendingApproval {
+            VStack(alignment: .leading, spacing: 8) {
+                sectionTitle(localized(.approvalRequestTitle), trailing: approval.source.rawValue.uppercased())
+                pendingApprovalRequest(approval)
+                pendingApprovalQueue
+            }
+        } else if let focus = model.approvalFocus {
             VStack(alignment: .leading, spacing: 8) {
                 sectionTitle(localized(.approvalRequestTitle), trailing: focus.source.rawValue.uppercased())
                 approvalRequest(focus)
+            }
+        }
+    }
+
+    private func pendingApprovalRequest(_ approval: PendingApproval) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                HStack(spacing: 7) {
+                    Circle()
+                        .fill(Color.orange)
+                        .frame(width: 8, height: 8)
+                    Text(localized(.statusWaitingApproval))
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.orange)
+                }
+                Spacer()
+                sourcePill(approval.source)
+            }
+            Text(approval.cwd)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            toolLine(tool: approval.toolName, summary: approval.summary)
+            HStack(spacing: 8) {
+                Button(localized(.approvalAllowOnce)) {
+                    model.decidePendingApproval(approval, decision: .allowOnce)
+                }
+                .controlSize(.small)
+                Button(localized(.approvalRejectOnce)) {
+                    model.decidePendingApproval(approval, decision: .rejectOnce)
+                }
+                .controlSize(.small)
+            }
+            Button(localized(.approvalAllowSimilar)) {
+                model.decidePendingApproval(approval, decision: .allowSimilarNextTime)
+            }
+            .controlSize(.small)
+            .disabled(approval.similarRuleSuggestion == nil)
+            if let suggestion = approval.similarRuleSuggestion {
+                Text(suggestion.label)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text(localized(.approvalSimilarUnavailable))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let message = model.approvalActionMessage {
+                Text(localized(message))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(10)
+        .background(Color.orange.opacity(0.10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.orange.opacity(0.44), lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    @ViewBuilder
+    private var pendingApprovalQueue: some View {
+        if model.pendingApprovals.count > 1 {
+            VStack(alignment: .leading, spacing: 6) {
+                sectionTitle(localized(.approvalPendingQueue), trailing: "\(model.pendingApprovals.count)")
+                ForEach(model.pendingApprovals.dropFirst()) { approval in
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(Color.orange.opacity(0.7))
+                            .frame(width: 6, height: 6)
+                        Text(approval.source.rawValue.uppercased())
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 46, alignment: .leading)
+                        Text(approval.toolName)
+                            .font(.caption2.weight(.semibold))
+                            .lineLimit(1)
+                        Text(approval.summary)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
             }
         }
     }

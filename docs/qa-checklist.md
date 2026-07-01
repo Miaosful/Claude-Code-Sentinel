@@ -26,6 +26,7 @@ Date: 2026-06-24
 - [x] Today and total auto-approval counters match audit events.
 - [x] Session store persists to and loads from JSON.
 - [x] Menu popover install/uninstall buttons call the hook settings installer.
+- [x] Panel approval models, persistence, similar-rule suggestions, and decision JSON outputs are covered by `CCSentinelCoreTestRunner`.
 
 ## Manual Smoke Checks
 
@@ -35,6 +36,12 @@ Date: 2026-06-24
 - [x] `CCSentinelApp` builds as a project-local `.app` bundle and launches through `script/build_and_run.sh`.
 - [x] A running `CCSentinelApp` receiver accepts `SessionStart`, `PermissionRequest`, and `PostToolUse`, then persists `running -> waiting_approval -> running`.
 - [x] With opt-in auto-approval settings, a workspace-scoped `Read` permission request emits Claude Code's allow JSON and records an audit event.
+- [ ] A non-auto-approved `PermissionRequest` appears in the panel.
+- [ ] `Allow once` lets Claude Code continue without changing config.
+- [ ] `Reject once` rejects only the current request.
+- [ ] `Allow similar next time` writes a narrow allow rule and approves the current request.
+- [ ] Compound shell commands do not enable `Allow similar next time`.
+- [ ] Timeout returns to Claude Code native confirmation behavior.
 
 ## Remaining MVP Gaps
 

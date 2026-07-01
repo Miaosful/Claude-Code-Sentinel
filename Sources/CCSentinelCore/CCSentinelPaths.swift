@@ -40,4 +40,16 @@ public enum CCSentinelPaths {
             .map { URL(fileURLWithPath: $0) } ??
             applicationSupportDirectory(environment: environment).appendingPathComponent("auto-approval-stats.json")
     }
+
+    public static func pendingApprovalsDirectory(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL {
+        environment["CC_SENTINEL_PENDING_APPROVALS_DIR"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) } ??
+            applicationSupportDirectory(environment: environment).appendingPathComponent("pending-approvals", isDirectory: true)
+    }
+
+    public static func approvalDecisionsDirectory(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL {
+        environment["CC_SENTINEL_APPROVAL_DECISIONS_DIR"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) } ??
+            applicationSupportDirectory(environment: environment).appendingPathComponent("approval-decisions", isDirectory: true)
+    }
 }

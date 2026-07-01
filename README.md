@@ -74,13 +74,19 @@ script/build_and_run.sh --verify
 
 ## 自动审批
 
-自动审批默认关闭。策略完整保存在本机 JSON 配置文件中，App 的导入操作会先备份现有配置，再整份覆盖为导入文件。默认配置只自动允许工作区内的 `Read` 请求，并记录今日和累计自动同意次数。
+自动审批默认关闭。策略完整保存在本机 JSON 配置文件中，App 的导入操作会先备份现有配置，再整份覆盖为导入文件。默认配置只包含自动允许规则，包括工作区内读取和常用低风险检查命令；自动同意会记录今日和累计次数。
+
+未自动通过的请求可以直接在 CC Sentinel 面板中审核：
+
+- `仅本次允许`：只允许当前请求。
+- `仅本次拒绝`：只拒绝当前请求。
+- `下次自动允许类似请求`：保存一条较窄的允许规则，并允许当前请求。
 
 以下操作不会被默认自动同意：
 
 - 工作区外读取
 - 编辑文件
-- Bash 命令
+- 未列入白名单或复合 Bash 命令
 - `sudo`
 - `rm -rf`
 - `git push`
@@ -91,6 +97,8 @@ script/build_and_run.sh --verify
 ```text
 ~/Library/Application Support/CC Sentinel/auto-approval-config.json
 ~/Library/Application Support/CC Sentinel/auto-approval-stats.json
+~/Library/Application Support/CC Sentinel/pending-approvals/
+~/Library/Application Support/CC Sentinel/approval-decisions/
 ```
 
 仓库里提供了一个可直接导入的常用低风险模板：`docs/examples/auto-approval-config.json`

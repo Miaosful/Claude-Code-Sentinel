@@ -12,10 +12,12 @@ final class AppModel: ObservableObject {
         didSet {
             guard autoApprovalEnabled != oldValue else { return }
             autoApprovalConfig.enabled = autoApprovalEnabled
-            persistAutoApprovalConfig()
+            try? persistAutoApprovalConfig()
         }
     }
     @Published var integrationMessage: IntegrationMessage?
+    @Published private(set) var pendingApprovals: [PendingApproval] = []
+    @Published var approvalActionMessage: L10nKey?
     @Published private(set) var hooksInstalled = false
     @Published var languagePreference: AppLanguagePreference {
         didSet {
@@ -34,6 +36,8 @@ final class AppModel: ObservableObject {
     private let autoApprovalConfigURL: URL
     private let legacyAutoApprovalSettingsURL: URL
     private let autoApprovalStatsURL: URL
+    private let pendingApprovalsDirectory: URL
+    private let approvalDecisionsDirectory: URL
     private let settingsURL: URL
     private let hookBinaryURL: URL
     private let userDefaults: UserDefaults
@@ -46,6 +50,8 @@ final class AppModel: ObservableObject {
         autoApprovalConfigURL: URL = AppModel.defaultAutoApprovalConfigURL(),
         legacyAutoApprovalSettingsURL: URL = AppModel.defaultAutoApprovalSettingsURL(),
         autoApprovalStatsURL: URL = AppModel.defaultAutoApprovalStatsURL(),
+        pendingApprovalsDirectory: URL = AppModel.defaultPendingApprovalsDirectory(),
+        approvalDecisionsDirectory: URL = AppModel.defaultApprovalDecisionsDirectory(),
         settingsURL: URL = AppModel.defaultClaudeSettingsURL(),
         hookBinaryURL: URL = AppModel.defaultHookBinaryURL(),
         userDefaults: UserDefaults = .standard
@@ -54,6 +60,8 @@ final class AppModel: ObservableObject {
         self.autoApprovalConfigURL = autoApprovalConfigURL
         self.legacyAutoApprovalSettingsURL = legacyAutoApprovalSettingsURL
         self.autoApprovalStatsURL = autoApprovalStatsURL
+        self.pendingApprovalsDirectory = pendingApprovalsDirectory
+        self.approvalDecisionsDirectory = approvalDecisionsDirectory
         self.settingsURL = settingsURL
         self.hookBinaryURL = hookBinaryURL
         self.userDefaults = userDefaults
@@ -71,9 +79,10 @@ final class AppModel: ObservableObject {
         )) ?? .default
         self.autoApprovalEnabled = autoApprovalConfig.enabled
         self.autoApprovalStats = (try? AutoApprovalStatsPersistence.load(from: autoApprovalStatsURL)) ?? AutoApprovalStats()
+        self.pendingApprovals = (try? PendingApprovalPersistence.loadActive(from: pendingApprovalsDirectory)) ?? []
         refreshHookInstallationStatus()
         refreshVisibleRuntimeState()
-        persistAutoApprovalConfig()
+        try? persistAutoApprovalConfig()
     }
 
     var aggregateStatus: AggregateStatus {
@@ -96,6 +105,10 @@ final class AppModel: ObservableObject {
         ApprovalFocus.resolve(store: store)
     }
 
+    var focusedPendingApproval: PendingApproval? {
+        pendingApprovals.first
+    }
+
     var requiresHookSetup: Bool {
         !hooksInstalled && store.sessions.isEmpty
     }
@@ -104,8 +117,13 @@ final class AppModel: ObservableObject {
         autoApprovalStats = (try? AutoApprovalStatsPersistence.load(from: autoApprovalStatsURL)) ?? autoApprovalStats
     }
 
+    func refreshPendingApprovals() {
+        pendingApprovals = (try? PendingApprovalPersistence.loadActive(from: pendingApprovalsDirectory)) ?? []
+    }
+
     func refreshRuntimeStatus() {
         refreshAutoApprovalStats()
+        refreshPendingApprovals()
         refreshVisibleRuntimeState()
     }
 
@@ -141,6 +159,33 @@ final class AppModel: ObservableObject {
     func recordAutoApproval(toolName: String, summary: String, workspace: String) {
         autoApprovalStats.record(toolName: toolName, summary: summary, workspace: workspace)
         try? AutoApprovalStatsPersistence.save(autoApprovalStats, to: autoApprovalStatsURL)
+    }
+
+    func decidePendingApproval(_ approval: PendingApproval, decision: PanelApprovalDecision) {
+        do {
+            var ruleToAdd: AutoApprovalRule?
+            if decision == .allowSimilarNextTime {
+                guard let suggestion = approval.similarRuleSuggestion else {
+                    approvalActionMessage = .approvalSimilarUnavailable
+                    return
+                }
+                ruleToAdd = suggestion.rule
+                if !autoApprovalConfig.rules.contains(where: { $0.id == suggestion.rule.id }) {
+                    autoApprovalConfig.rules.append(suggestion.rule)
+                    try persistAutoApprovalConfig()
+                }
+            }
+
+            try PendingApprovalPersistence.saveDecision(
+                ApprovalDecisionRecord(id: approval.id, decision: decision, ruleToAdd: ruleToAdd),
+                to: approvalDecisionsDirectory
+            )
+            try? PendingApprovalPersistence.removeApproval(id: approval.id, from: pendingApprovalsDirectory)
+            approvalActionMessage = .approvalDecisionSent
+            refreshPendingApprovals()
+        } catch {
+            approvalActionMessage = .approvalDecisionFailed
+        }
     }
 
     func importAutoApprovalConfig(from url: URL) {
@@ -264,8 +309,8 @@ final class AppModel: ObservableObject {
         CCSentinelPaths.storeURL()
     }
 
-    private func persistAutoApprovalConfig() {
-        try? AutoApprovalConfigPersistence.save(autoApprovalConfig, to: autoApprovalConfigURL)
+    private func persistAutoApprovalConfig() throws {
+        try AutoApprovalConfigPersistence.save(autoApprovalConfig, to: autoApprovalConfigURL)
     }
 
     private static func defaultAutoApprovalConfigURL() -> URL {
@@ -278,6 +323,14 @@ final class AppModel: ObservableObject {
 
     private static func defaultAutoApprovalStatsURL() -> URL {
         CCSentinelPaths.autoApprovalStatsURL()
+    }
+
+    private static func defaultPendingApprovalsDirectory() -> URL {
+        CCSentinelPaths.pendingApprovalsDirectory()
+    }
+
+    private static func defaultApprovalDecisionsDirectory() -> URL {
+        CCSentinelPaths.approvalDecisionsDirectory()
     }
 
     private static func defaultClaudeSettingsURL() -> URL {

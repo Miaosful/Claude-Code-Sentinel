@@ -42,6 +42,13 @@
 "approval.source" = "Source";
 "approval.workspace" = "Workspace";
 "approval.summary" = "Request";
+"approval.allow_once" = "Allow once";
+"approval.reject_once" = "Reject once";
+"approval.allow_similar" = "Allow similar next time";
+"approval.similar_unavailable" = "Similar approval unavailable";
+"approval.pending_queue" = "Pending queue";
+"approval.decision_sent" = "Decision sent";
+"approval.decision_failed" = "Could not send decision";
 "auto_approval.policy" = "Auto approval policy";
 "auto_approval.off_detail" = "Off · CC Sentinel will only notify you.";
 "auto_approval.on_detail" = "On · %d today, %d total auto-approved.";

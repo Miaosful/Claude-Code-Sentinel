@@ -29,6 +29,12 @@ public struct AutoApprovalRule: Codable, Equatable, Sendable {
             self.commandContains = commandContains
             self.commandPrefixes = commandPrefixes
         }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.commandContains = try container.decodeIfPresent([String].self, forKey: .commandContains) ?? []
+            self.commandPrefixes = try container.decodeIfPresent([String].self, forKey: .commandPrefixes) ?? []
+        }
     }
 
     public var id: String
@@ -53,13 +59,58 @@ public struct AutoApprovalRule: Codable, Equatable, Sendable {
         AutoApprovalRule(id: "allow-workspace-edit", effect: .allow, tool: "Edit", scope: .workspace, match: nil)
     }
 
-    public static func denySensitiveShell() -> AutoApprovalRule {
+    public static func allowTextInspection() -> AutoApprovalRule {
         AutoApprovalRule(
-            id: "deny-sensitive-shell",
-            effect: .deny,
+            id: "allow-text-inspection",
+            effect: .allow,
             tool: "Bash",
-            scope: nil,
-            match: .init(commandContains: ["git push", "rm -rf", "sudo ", "chmod -r", "/.ssh", "/.gnupg"])
+            scope: .workspace,
+            match: .init(commandPrefixes: [
+                "pwd",
+                "ls",
+                "find .",
+                "rg",
+                "grep",
+                "cat",
+                "sed -n",
+                "wc",
+                "head",
+                "tail"
+            ])
+        )
+    }
+
+    public static func allowGitInspection() -> AutoApprovalRule {
+        AutoApprovalRule(
+            id: "allow-git-inspection",
+            effect: .allow,
+            tool: "Bash",
+            scope: .workspace,
+            match: .init(commandPrefixes: [
+                "git status",
+                "git diff",
+                "git log",
+                "git branch",
+                "git show",
+                "git rev-parse",
+                "git remote"
+            ])
+        )
+    }
+
+    public static func allowSwiftWorkflow() -> AutoApprovalRule {
+        AutoApprovalRule(
+            id: "allow-swift-workflow",
+            effect: .allow,
+            tool: "Bash",
+            scope: .workspace,
+            match: .init(commandPrefixes: [
+                "swift build",
+                "swift test",
+                "swift run CCSentinelCoreTestRunner",
+                "swift run cc-sentinel-dump-state",
+                "script/build_and_run.sh --verify"
+            ])
         )
     }
 
@@ -75,6 +126,9 @@ public struct AutoApprovalRule: Codable, Equatable, Sendable {
         if let match {
             let lowerCommand = command.lowercased()
             let trimmedLowerCommand = lowerCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !containsShellControlOperator(trimmedLowerCommand) else {
+                return false
+            }
             return match.commandContains.contains { needle in
                 lowerCommand.contains(needle.lowercased())
             } || match.commandPrefixes.contains { prefix in
@@ -83,6 +137,10 @@ public struct AutoApprovalRule: Codable, Equatable, Sendable {
         }
 
         return true
+    }
+
+    private func containsShellControlOperator(_ command: String) -> Bool {
+        ["&&", "||", ";", "|", ">", "<"].contains { command.contains($0) }
     }
 
     private func isWorkspaceScoped(command: String, cwd: String, workspace: String) -> Bool {
@@ -114,7 +172,12 @@ public struct AutoApprovalConfig: Codable, Equatable, Sendable {
         enabled: false,
         workspace: "",
         profile: nil,
-        rules: [.allowWorkspaceRead(), .denySensitiveShell()]
+        rules: [
+            .allowWorkspaceRead(),
+            .allowTextInspection(),
+            .allowGitInspection(),
+            .allowSwiftWorkflow()
+        ]
     )
 
     public init(
@@ -141,7 +204,7 @@ public struct AutoApprovalConfig: Codable, Equatable, Sendable {
             guard rule.matches(tool: tool, command: command, cwd: cwd, workspace: workspace) else {
                 continue
             }
-            return rule.effect == .allow ? .allow : .deny
+            return rule.effect == .allow ? .allow : .ask
         }
         return .ask
     }

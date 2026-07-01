@@ -1270,7 +1270,7 @@ func testLowRiskReadCanBeAllowedWhenUserOptedIn() {
     assertEqual(decision, .allow, "opted-in read is allowed")
 }
 
-func testGitPushIsDeniedByDefault() {
+func testGitPushAsksByDefault() {
     let decision = ApprovalPolicy.default.evaluate(
         tool: "Bash",
         command: "git push origin main",
@@ -1278,7 +1278,7 @@ func testGitPushIsDeniedByDefault() {
         workspace: "/repo"
     )
 
-    assertEqual(decision, .deny, "git push is denied")
+    assertEqual(decision, .ask, "git push asks by default")
 }
 
 func testWorkspacePrefixSiblingIsNotAllowed() {
@@ -1345,13 +1345,19 @@ func testAutoApprovalConfigAllowsMultiplePrefixRules() {
     assertEqual(decision, ApprovalDecision.allow, "multiple prefix rules allow matching command")
 }
 
-func testDenyRuleStillBeatsLaterLowRiskPrefixRule() {
+func testDenyRuleFallsBackToAskWithoutAutoRejecting() {
     let config = AutoApprovalConfig(
         schemaVersion: 1,
         enabled: true,
         workspace: "/repo",
         rules: [
-            .denySensitiveShell(),
+            AutoApprovalRule(
+                id: "manual-deny-git-push",
+                effect: .deny,
+                tool: "Bash",
+                scope: .workspace,
+                match: .init(commandPrefixes: ["git push"])
+            ),
             AutoApprovalRule(
                 id: "allow-git-prefix",
                 effect: .allow,
@@ -1369,7 +1375,266 @@ func testDenyRuleStillBeatsLaterLowRiskPrefixRule() {
         fallbackWorkspace: "/repo"
     )
 
-    assertEqual(decision, ApprovalDecision.deny, "deny rule still wins before broad low-risk prefix rule")
+    assertEqual(decision, ApprovalDecision.ask, "deny rules fall back to asking instead of auto-rejecting")
+}
+
+func testDefaultAutoApprovalAllowsCommonLowRiskBashCommandsWhenEnabled() {
+    var config = AutoApprovalConfig.default
+    config.enabled = true
+    config.workspace = "/repo"
+
+    let commands = [
+        "pwd",
+        "ls -la",
+        "find . -maxdepth 2 -type f",
+        "rg AutoApproval",
+        "grep -R AutoApproval Sources",
+        "cat README.md",
+        "sed -n '1,120p' Sources/CCSentinelCore/AutoApprovalSettings.swift",
+        "wc -l README.md",
+        "head README.md",
+        "tail README.md",
+        "git status --short",
+        "git diff --stat",
+        "git log --oneline -5",
+        "git branch --show-current",
+        "git show --stat",
+        "git rev-parse --show-toplevel",
+        "git remote -v",
+        "swift build",
+        "swift test",
+        "swift run CCSentinelCoreTestRunner",
+        "swift run cc-sentinel-dump-state",
+        "script/build_and_run.sh --verify"
+    ]
+
+    for command in commands {
+        let decision = config.evaluate(
+            tool: "Bash",
+            command: command,
+            cwd: "/repo",
+            fallbackWorkspace: "/repo"
+        )
+
+        assertEqual(decision, ApprovalDecision.allow, "default config allows low-risk command: \(command)")
+    }
+}
+
+func testDefaultAutoApprovalStillAsksForUnlistedBashCommandsWhenEnabled() {
+    var config = AutoApprovalConfig.default
+    config.enabled = true
+    config.workspace = "/repo"
+
+    let commands = [
+        "git add Sources/CCSentinelCore/AutoApprovalSettings.swift",
+        "git commit -m update",
+        "npm install",
+        "curl -s https://example.com",
+        "cp README.md README.copy.md"
+    ]
+
+    for command in commands {
+        let decision = config.evaluate(
+            tool: "Bash",
+            command: command,
+            cwd: "/repo",
+            fallbackWorkspace: "/repo"
+        )
+
+        assertEqual(decision, ApprovalDecision.ask, "default config asks for unlisted command: \(command)")
+    }
+}
+
+func testDefaultAutoApprovalAsksForSensitiveShellCommands() {
+    var config = AutoApprovalConfig.default
+    config.enabled = true
+    config.workspace = "/repo"
+
+    let decision = config.evaluate(
+        tool: "Bash",
+        command: "git push origin main",
+        cwd: "/repo",
+        fallbackWorkspace: "/repo"
+    )
+
+    assertEqual(decision, ApprovalDecision.ask, "default config asks for sensitive shell commands")
+}
+
+func testDefaultAutoApprovalAsksForShellControlOperators() {
+    var config = AutoApprovalConfig.default
+    config.enabled = true
+    config.workspace = "/repo"
+
+    let commands = [
+        "ls && git push origin main",
+        "rg AutoApproval | head",
+        "cat README.md > /tmp/README.copy",
+        "sed -n '1,20p' README.md; git status"
+    ]
+
+    for command in commands {
+        let decision = config.evaluate(
+            tool: "Bash",
+            command: command,
+            cwd: "/repo",
+            fallbackWorkspace: "/repo"
+        )
+
+        assertEqual(decision, ApprovalDecision.ask, "default config asks for shell control operator command: \(command)")
+    }
+}
+
+func testExampleAutoApprovalPresetMatchesDefaultRuleIDs() throws {
+    let data = try Data(contentsOf: URL(fileURLWithPath: "docs/examples/auto-approval-config.json"))
+    let example = try JSONDecoder().decode(AutoApprovalConfig.self, from: data)
+    let exampleRuleIDs = example.rules.map(\.id)
+    let defaultRuleIDs = AutoApprovalConfig.default.rules.map(\.id)
+
+    assertEqual(exampleRuleIDs, defaultRuleIDs, "example auto approval preset rule IDs match default config")
+}
+
+func testPendingApprovalPathsUseEnvironmentOverrides() {
+    let environment = [
+        "CC_SENTINEL_PENDING_APPROVALS_DIR": "/tmp/cc-pending",
+        "CC_SENTINEL_APPROVAL_DECISIONS_DIR": "/tmp/cc-decisions"
+    ]
+
+    assertEqual(
+        CCSentinelPaths.pendingApprovalsDirectory(environment: environment).path,
+        "/tmp/cc-pending",
+        "pending approval path uses override"
+    )
+    assertEqual(
+        CCSentinelPaths.approvalDecisionsDirectory(environment: environment).path,
+        "/tmp/cc-decisions",
+        "approval decision path uses override"
+    )
+}
+
+func testPendingApprovalRoundTripsJSONModel() throws {
+    let approval = PendingApproval(
+        id: "p1",
+        sessionID: "s1",
+        source: .cli,
+        cwd: "/repo",
+        toolName: "Bash",
+        summary: "command=git status --short",
+        command: "git status --short",
+        requestedAt: Date(timeIntervalSince1970: 1_800_000_000),
+        expiresAt: Date(timeIntervalSince1970: 1_800_000_120),
+        similarRuleSuggestion: SimilarApprovalRuleSuggestion(
+            label: "Bash commands starting with \"git status\"",
+            rule: AutoApprovalRule(
+                id: "allow-similar-git-status",
+                effect: .allow,
+                tool: "Bash",
+                scope: .workspace,
+                match: .init(commandPrefixes: ["git status"])
+            )
+        )
+    )
+
+    let data = try JSONEncoder().encode(approval)
+    let decoded = try JSONDecoder().decode(PendingApproval.self, from: data)
+
+    assertEqual(decoded, approval, "pending approval model round trips")
+}
+
+func testPendingApprovalPersistenceSavesLoadsAndSortsActiveRecords() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("cc-pending-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let later = PendingApproval(
+        id: "later",
+        sessionID: "s2",
+        source: .cli,
+        cwd: "/repo",
+        toolName: "Bash",
+        summary: "later",
+        command: "git diff",
+        requestedAt: Date(timeIntervalSince1970: 20),
+        expiresAt: Date(timeIntervalSince1970: 120)
+    )
+    let earlier = PendingApproval(
+        id: "earlier",
+        sessionID: "s1",
+        source: .vscode,
+        cwd: "/repo",
+        toolName: "Read",
+        summary: "earlier",
+        command: "/repo/README.md",
+        requestedAt: Date(timeIntervalSince1970: 10),
+        expiresAt: Date(timeIntervalSince1970: 120)
+    )
+
+    try PendingApprovalPersistence.save(later, to: directory)
+    try PendingApprovalPersistence.save(earlier, to: directory)
+
+    let loaded = try PendingApprovalPersistence.loadActive(from: directory, now: Date(timeIntervalSince1970: 30))
+
+    assertEqual(loaded.map(\.id), ["earlier", "later"], "pending approvals load oldest first")
+}
+
+func testDecisionPersistenceConsumesDecisionOnce() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("cc-decisions-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let decision = ApprovalDecisionRecord(id: "p1", decision: .allowOnce, decidedAt: Date(timeIntervalSince1970: 10))
+
+    try PendingApprovalPersistence.saveDecision(decision, to: directory)
+    let loaded = try PendingApprovalPersistence.consumeDecision(id: "p1", from: directory)
+    let secondLoad = try PendingApprovalPersistence.consumeDecision(id: "p1", from: directory)
+
+    assertEqual(loaded, decision, "decision loads")
+    assertEqual(secondLoad, nil, "decision is consumed once")
+}
+
+func testSimilarApprovalSuggestsGitStatusPrefix() {
+    let event = NormalizedEvent(
+        kind: .permissionRequest,
+        sessionID: "s1",
+        source: .cli,
+        cwd: "/repo",
+        toolName: "Bash",
+        toolSummary: "command=git status --short",
+        toolCommand: "git status --short",
+        occurredAt: Date(timeIntervalSince1970: 1)
+    )
+
+    let suggestion = SimilarApprovalSuggestion.make(for: event, workspace: "/repo")
+
+    assertEqual(suggestion?.rule.tool, .some("Bash"), "suggestion is for Bash")
+    assertEqual(suggestion?.rule.match?.commandPrefixes, .some(["git status"]), "git status suggestion uses narrow prefix")
+}
+
+func testSimilarApprovalDoesNotSuggestCompoundShellCommand() {
+    let event = NormalizedEvent(
+        kind: .permissionRequest,
+        sessionID: "s1",
+        source: .cli,
+        cwd: "/repo",
+        toolName: "Bash",
+        toolSummary: "command=rg TODO | head",
+        toolCommand: "rg TODO | head",
+        occurredAt: Date(timeIntervalSince1970: 1)
+    )
+
+    let suggestion = SimilarApprovalSuggestion.make(for: event, workspace: "/repo")
+
+    assertEqual(suggestion, nil, "compound shell commands do not get similar suggestions")
+}
+
+func testPanelAllowDecisionProducesAllowOutput() {
+    let output = AutoApprovalHookDecision.outputJSON(for: .allowOnce)
+
+    assertTrue(output.contains(#""behavior":"allow""#), "allow once output allows")
+}
+
+func testPanelRejectDecisionProducesDenyOutput() {
+    let output = AutoApprovalHookDecision.outputJSON(for: .rejectOnce)
+
+    assertTrue(output.contains(#""behavior":"deny""#), "reject once output denies")
 }
 
 func testAutoApprovalSettingsDefaultToDisabled() {
@@ -1452,7 +1717,15 @@ func testAutoApprovalConfigRoundTripsJSON() throws {
         enabled: true,
         workspace: "/repo",
         profile: AutoApprovalProfile(name: "Preset", notes: "shared"),
-        rules: [.allowWorkspaceRead(), .denySensitiveShell()]
+        rules: [
+            .allowWorkspaceRead(),
+            AutoApprovalRule(
+                id: "manual-deny-round-trip",
+                effect: .deny,
+                tool: "Bash",
+                match: .init(commandPrefixes: ["git push"])
+            )
+        ]
     )
     let url = FileManager.default.temporaryDirectory
         .appendingPathComponent("cc-sentinel-auto-config-\(UUID().uuidString)")
@@ -1520,7 +1793,7 @@ func testAutoApprovalConfigMigratesLegacySettings() throws {
     assertEqual(config.enabled, true, "migration keeps enabled")
     assertEqual(config.workspace, "/repo", "migration keeps workspace")
     assertTrue(config.rules.contains(.allowWorkspaceRead()), "migration adds workspace read rule")
-    assertTrue(config.rules.contains(.denySensitiveShell()), "migration adds sensitive shell deny rule")
+    assertTrue(!config.rules.contains { $0.effect == .deny }, "migration does not add deny rules")
     assertTrue(FileManager.default.fileExists(atPath: configURL.path), "migration writes new config")
 }
 
@@ -1608,11 +1881,24 @@ func testRecordingAutoApprovalIncrementsTodayAndTotal() {
 
 testDefaultPolicyAsksForEveryTool()
 testLowRiskReadCanBeAllowedWhenUserOptedIn()
-testGitPushIsDeniedByDefault()
+testGitPushAsksByDefault()
 testWorkspacePrefixSiblingIsNotAllowed()
 testBashCommandPrefixRuleAllowsLowRiskCommand()
 testAutoApprovalConfigAllowsMultiplePrefixRules()
-testDenyRuleStillBeatsLaterLowRiskPrefixRule()
+testDenyRuleFallsBackToAskWithoutAutoRejecting()
+testDefaultAutoApprovalAllowsCommonLowRiskBashCommandsWhenEnabled()
+testDefaultAutoApprovalStillAsksForUnlistedBashCommandsWhenEnabled()
+testDefaultAutoApprovalAsksForSensitiveShellCommands()
+testDefaultAutoApprovalAsksForShellControlOperators()
+try testExampleAutoApprovalPresetMatchesDefaultRuleIDs()
+testPendingApprovalPathsUseEnvironmentOverrides()
+try testPendingApprovalRoundTripsJSONModel()
+try testPendingApprovalPersistenceSavesLoadsAndSortsActiveRecords()
+try testDecisionPersistenceConsumesDecisionOnce()
+testSimilarApprovalSuggestsGitStatusPrefix()
+testSimilarApprovalDoesNotSuggestCompoundShellCommand()
+testPanelAllowDecisionProducesAllowOutput()
+testPanelRejectDecisionProducesDenyOutput()
 testAutoApprovalSettingsDefaultToDisabled()
 try testAutoApprovalDoesNothingWhenDisabled()
 try testAutoApprovalAllowsWorkspaceReadAndRecordsStats()
